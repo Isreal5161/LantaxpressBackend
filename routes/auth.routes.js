@@ -10,38 +10,47 @@ import fs from "fs";
 
 const router = express.Router();
 
-// ================= MULTER SETUP =================
+// ================= MULTER SETUP FOR LOGO/AVATAR =================
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = "uploads/avatars";
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    const dir = "uploads";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname);
-    cb(null, `${req.user.id}-${Date.now()}${ext}`);
+    cb(null, `${file.fieldname}-${Date.now()}${ext}`);
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   fileFilter: (req, file, cb) => {
     const allowed = ["image/jpeg", "image/png", "image/jpg"];
-    if (allowed.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only JPG/PNG images are allowed"));
-    }
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Only JPG/PNG images are allowed"));
   },
 });
 
 // ================= REGISTER =================
-router.post("/register", async (req, res) => {
+router.post("/register", upload.single("logo"), async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role,
+      brandName,
+      description,
+      categories,
+      state,
+      address,
+    } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "User already exists" });
@@ -49,21 +58,33 @@ router.post("/register", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = await User.create({
+    const newUserData = {
       name,
       email,
       password: hashedPassword,
       role: role || "user",
-    });
+    };
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    if (role === "seller") {
+      newUserData.brandName = brandName;
+      newUserData.description = description;
+      newUserData.categories = categories ? JSON.parse(categories) : [];
+      newUserData.state = state;
+      newUserData.address = address;
+      if (req.file) newUserData.logo = `/${req.file.path.replace(/\\/g, "/")}`;
+    }
 
-    res.status(201).json({
-      message: "User registered successfully",
-      token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    const user = await User.create(newUserData);
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({ message: "User registered successfully", token, user });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -72,6 +93,8 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password are required" });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
@@ -79,13 +102,13 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    res.json({
-      message: "Login successful",
-      token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-    });
+    res.json({ message: "Login successful", token, user });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -96,7 +119,6 @@ router.get("/me", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
-
     res.json({ user });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -104,27 +126,21 @@ router.get("/me", verifyToken, async (req, res) => {
 });
 
 // ================= UPLOAD AVATAR =================
-router.post(
-  "/upload-avatar",
-  verifyToken,
-  upload.single("avatar"),
-  async (req, res) => {
-    try {
-      if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+router.post("/upload-avatar", verifyToken, upload.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-      const user = await User.findById(req.user.id);
-      if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-      // Save relative path to user.avatar
-      user.avatar = `/${req.file.path.replace(/\\/g, "/")}`;
-      await user.save();
+    user.avatar = `/${req.file.path.replace(/\\/g, "/")}`;
+    await user.save();
 
-      res.json({ message: "Avatar uploaded successfully", user });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: err.message });
-    }
+    res.json({ message: "Avatar uploaded successfully", user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
-);
+});
 
 export default router;

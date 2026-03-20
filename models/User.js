@@ -2,35 +2,21 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-    },
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true },
+    password: { type: String, required: true },
+    role: { type: String, enum: ["user", "seller", "admin"], default: "user" },
+    isVerified: { type: Boolean, default: false },
 
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-    },
-
-    password: {
-      type: String,
-      required: true,
-    },
-
-    role: {
-      type: String,
-      enum: ["user", "seller", "admin"],
-      default: "user",
-    },
-
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
+    // Seller-specific fields
+    brandName: { type: String },
+    description: { type: String },
+    categories: { type: [String] },
+    logo: { type: String }, // store file path or URL
+    state: { type: String },
+    address: { type: String },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("User", userSchema); 
+export default mongoose.model("User", userSchema);
