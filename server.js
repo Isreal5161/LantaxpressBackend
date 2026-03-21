@@ -17,6 +17,8 @@ connectDB();
 const app = express();
 
 // Middleware
+app.use(express.json()); // <--- ADD THIS BEFORE ROUTES
+
 app.use(
   cors({
     origin: [
@@ -35,18 +37,16 @@ const token = jwt.sign(
 );
 console.log("Test token:", token);
 
-// Routes
+// Test route
 app.get("/", (req, res) => {
   res.send("LantaXpress Backend Running...");
 });
 
-// ✅ Auth Routes
+// Routes
 app.use("/api/auth", authRoutes);
-
-// ✅ Seller Routes (NEW)
 app.use("/api/seller", sellerRoutes);
 
-// Handle 404 (optional but good practice)
+// Handle 404
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -54,7 +54,7 @@ app.use((req, res) => {
   });
 });
 
-// Global error handler (optional)
+// Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
