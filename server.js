@@ -7,6 +7,8 @@ import cors from "cors";
 // Routes
 import authRoutes from "./routes/auth.routes.js";
 import sellerRoutes from "./routes/seller.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 // Load environment variables
 dotenv.config();
@@ -45,6 +47,8 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/seller", sellerRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Handle 404
 app.use((req, res) => {

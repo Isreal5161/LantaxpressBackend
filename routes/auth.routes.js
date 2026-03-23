@@ -2,19 +2,17 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import { verifyToken } from "../middleware/auth.js";
+import { verifyToken, authorizeRoles } from "../middleware/auth.js";
 
-// Cloudinary
 import cloudinary from "../config/cloudinary.js";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 
-// Import login controller
 import { loginUser } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 
-// ================= CLOUDINARY STORAGE =================
+// ================= CLOUDINARY =================
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
@@ -46,18 +44,25 @@ router.post("/register", upload.single("logo"), async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({ message: "User already exists" });
+    // ❌ BLOCK ADMIN REGISTRATION
+    if (role === "admin") {
+      return res.status(403).json({
+        message: "Admin cannot be registered publicly",
+      });
+    }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUserData = {
       name,
       email,
       password: hashedPassword,
-      role: role || "user",
+      role: role === "seller" ? "seller" : "user",
     };
 
     // ✅ SELLER DATA
@@ -70,9 +75,8 @@ router.post("/register", upload.single("logo"), async (req, res) => {
       newUserData.state = state;
       newUserData.address = address;
 
-      // ✅ CLOUDINARY IMAGE URL
       if (req.file) {
-        newUserData.logo = req.file.path; // Cloudinary URL
+        newUserData.logo = req.file.path;
       }
     }
 
@@ -84,10 +88,12 @@ router.post("/register", upload.single("logo"), async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    const { password: _, ...safeUser } = user.toObject();
+
     res.status(201).json({
       message: "User registered successfully",
       token,
-      user,
+      user: safeUser,
     });
   } catch (error) {
     console.error(error);
@@ -98,14 +104,20 @@ router.post("/register", upload.single("logo"), async (req, res) => {
 // ================= LOGIN =================
 router.post("/login", loginUser);
 
-// ================= GET CURRENT USER =================
-router.get("/me", verifyToken, async (req, res) => {
-  try {
-    res.json({ user: req.user });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+// ================= CURRENT USER =================
+router.get("/me", verifyToken, (req, res) => {
+  res.json({ user: req.user });
 });
+
+// ================= ADMIN TEST ROUTE =================
+router.get(
+  "/admin-only",
+  verifyToken,
+  authorizeRoles("admin"),
+  (req, res) => {
+    res.json({ message: "Welcome Admin 👑" });
+  }
+);
 
 // ================= UPLOAD AVATAR =================
 router.post(
@@ -117,11 +129,8 @@ router.post(
       if (!req.file)
         return res.status(400).json({ message: "No file uploaded" });
 
-      const user = await User.findById(req.user.id);
-      if (!user)
-        return res.status(404).json({ message: "User not found" });
-
-      user.avatar = req.file.path; // Cloudinary URL
+      const user = await User.findById(req.user._id);
+      user.avatar = req.file.path;
       await user.save();
 
       res.json({
@@ -129,7 +138,6 @@ router.post(
         user,
       });
     } catch (err) {
-      console.error(err);
       res.status(500).json({ message: err.message });
     }
   }
