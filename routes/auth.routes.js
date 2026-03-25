@@ -9,8 +9,40 @@ import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 
 import { loginUser } from "../controllers/auth.controller.js";
+import { loginAdmin } from "../controllers/auth.controller.js";
 
 const router = express.Router();
+
+// Simple in-memory rate limiter for admin login (suitable for temporary protection).
+// Note: for production use a shared store (Redis) and a battle-tested library.
+const loginAttempts = new Map();
+const ADMIN_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const ADMIN_MAX_ATTEMPTS = 8;
+
+function adminRateLimit(req, res, next) {
+  const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+  const key = `admin:${ip}`;
+  const now = Date.now();
+  const entry = loginAttempts.get(key) || { count: 0, first: now };
+
+  if (now - entry.first > ADMIN_LIMIT_WINDOW) {
+    entry.count = 0;
+    entry.first = now;
+  }
+
+  entry.count += 1;
+  loginAttempts.set(key, entry);
+
+  if (entry.count > ADMIN_MAX_ATTEMPTS) {
+    return res.status(429).json({ message: "Too many login attempts. Try again later." });
+  }
+
+  // attach remaining attempts info (optional)
+  res.setHeader('X-RateLimit-Remaining', Math.max(0, ADMIN_MAX_ATTEMPTS - entry.count));
+  next();
+}
+
+router.post("/admin/login", adminRateLimit, loginAdmin);
 
 // ================= CLOUDINARY =================
 const storage = new CloudinaryStorage({

@@ -10,7 +10,7 @@ export const getPendingProducts = async (req, res) => {
   }
 };
 
-// APPROVE PRODUCT
+// APPROVE PRODUCT //
 export const approveProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndUpdate(
