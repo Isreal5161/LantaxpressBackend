@@ -33,4 +33,21 @@ router.put(
   rejectProduct
 );
 
+// GET REGISTERED USERS
+router.get(
+  "/users",
+  verifyToken,
+  allowRoles("admin"),
+  // lazy-load controller to avoid circular import issues
+  (req, res, next) => import("../controllers/admin.controller.js").then(m => m.getAllUsers(req, res, next)).catch(next)
+);
+
+// GET ORDERS TODAY
+router.get(
+  "/orders/today",
+  verifyToken,
+  allowRoles("admin"),
+  (req, res, next) => import("../controllers/admin.controller.js").then(m => m.getOrdersToday(req, res, next)).catch(next)
+);
+
 export default router;
