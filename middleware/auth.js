@@ -15,18 +15,27 @@ export const verifyToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    let user = await User.findById(decoded.id).select("-password");
-
-    if (!user) {
-      // try admin collection
-      user = await Admin.findById(decoded.id).select("-password");
+    // Try admin first (admin tokens must map to Admin collection)
+    const admin = await Admin.findById(decoded.id).select("-password");
+    if (admin) {
+      req.user = admin;
+      req.userSource = "admin";
+      return next();
     }
 
+    // Fallback to regular users
+    const user = await User.findById(decoded.id).select("-password");
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
 
+    // Prevent privilege escalation: user documents should never have admin role
+    if (user.role === "admin") {
+      return res.status(401).json({ message: "Invalid token source" });
+    }
+
     req.user = user;
+    req.userSource = "user";
     next();
   } catch (err) {
     console.error(err);
@@ -39,11 +48,30 @@ export const verifyToken = async (req, res, next) => {
 // ✅ ROLE-BASED ACCESS CONTROL
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        message: "Access denied: insufficient permissions",
-      });
+    const userRole = req.user?.role;
+    const userSource = req.userSource || "user";
+
+    // Admin access must come from admin collection/token
+    if (roles.includes("admin")) {
+      if (userRole === "admin" && userSource === "admin") return next();
+      return res.status(403).json({ message: "Access denied: admin only" });
     }
-    next();
+
+    // Sellers may act as users (allow seller for user-protected routes)
+    if (roles.includes("user") && (userRole === "user" || userRole === "seller" || userSource === "admin")) {
+      return next();
+    }
+
+    // Allow seller routes for sellers (and admins)
+    if (roles.includes("seller") && (userRole === "seller" || userSource === "admin")) {
+      return next();
+    }
+
+    // Generic check
+    if (roles.includes(userRole)) {
+      return next();
+    }
+
+    return res.status(403).json({ message: "Access denied: insufficient permissions" });
   };
 };

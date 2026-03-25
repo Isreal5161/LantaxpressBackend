@@ -18,6 +18,11 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // Prevent regular users from being admins (force admin logins to use Admin model)
+    if (user.role === "admin") {
+      return res.status(403).json({ message: "Please use the admin login endpoint" });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
