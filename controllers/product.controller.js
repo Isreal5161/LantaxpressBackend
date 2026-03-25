@@ -3,7 +3,7 @@ import Product from "../models/Product.js";
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
-    const { name, description, price, category, stock } = req.body;
+    const { name, description, price, category, stock, brand } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ message: "Name and price are required" });
@@ -16,6 +16,7 @@ export const addProduct = async (req, res) => {
       description,
       price,
       category,
+      brand,
       stock,
       images,
       seller: req.user._id,
