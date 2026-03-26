@@ -41,6 +41,22 @@ router.get(
   getSellerProducts
 );
 
+// ================= SELLER DASHBOARD STATS =================
+router.get(
+  "/dashboard",
+  verifyToken,
+  allowRoles("seller"),
+  // lazy-load controller to avoid circular deps
+  async (req, res, next) => {
+    try {
+      const { getSellerDashboard } = await import("../controllers/product.controller.js");
+      return getSellerDashboard(req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // ================= UPDATE PRODUCT (SELLER) =================
 router.put(
   "/products/:id",

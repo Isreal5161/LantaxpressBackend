@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import Order from "../models/Order.js";
 
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
@@ -113,6 +114,78 @@ export const getApprovedProducts = async (req, res) => {
 
     res.json(products);
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ================= SELLER DASHBOARD STATS =================
+export const getSellerDashboard = async (req, res) => {
+  try {
+    const sellerId = req.user._id;
+
+    // Fetch seller products
+    const products = await Product.find({ seller: sellerId });
+    const productIds = products.map(p => p._id);
+
+    const productsListed = products.filter(p => p.status === 'approved').length;
+    const productsPending = products.filter(p => p.status === 'pending').length;
+
+    // Fetch orders that include seller's products
+    const orders = await Order.find({ 'items.productId': { $in: productIds } }).populate('buyer', 'name email');
+
+    // Compute revenue attributable to this seller (sum of item.price * quantity for items belonging to seller)
+    let totalRevenue = 0;
+    orders.forEach(order => {
+      (order.items || []).forEach(item => {
+        if (item.productId && productIds.find(id => id.toString() === item.productId.toString())) {
+          totalRevenue += (item.price || 0) * (item.quantity || 0);
+        }
+      });
+    });
+
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(o => o.status === 'Pending').length;
+
+    // recent orders (limit 5)
+    const recentOrders = orders
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5)
+      .map(o => ({ id: o._id, buyer: o.buyer?.name || o.buyer?.email || 'Customer', amount: o.amount, status: o.status, date: o.createdAt }));
+
+    // daily revenue for last 7 days
+    const today = new Date();
+    const last7 = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      return d.toISOString().split('T')[0];
+    }).reverse();
+
+    const dailyRevenue = last7.map(day => {
+      let rev = 0;
+      orders.forEach(order => {
+        const orderDate = order.createdAt.toISOString().split('T')[0];
+        if (orderDate === day) {
+          (order.items || []).forEach(item => {
+            if (item.productId && productIds.find(id => id.toString() === item.productId.toString())) {
+              rev += (item.price || 0) * (item.quantity || 0);
+            }
+          });
+        }
+      });
+      return { date: day, revenue: rev };
+    });
+
+    res.json({
+      totalRevenue,
+      totalOrders,
+      productsListed,
+      productsPending,
+      pendingOrders,
+      recentOrders,
+      dailyRevenue,
+    });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: error.message });
   }
 };
