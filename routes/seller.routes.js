@@ -5,6 +5,7 @@ import {
   addProduct,
   getSellerProducts,
 } from "../controllers/product.controller.js";
+import { updateProduct, deleteProduct } from "../controllers/product.controller.js";
 
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
@@ -38,6 +39,23 @@ router.get(
   verifyToken,
   allowRoles("seller"),
   getSellerProducts
+);
+
+// ================= UPDATE PRODUCT (SELLER) =================
+router.put(
+  "/products/:id",
+  verifyToken,
+  allowRoles("seller"),
+  upload.array("images", 5),
+  updateProduct
+);
+
+// ================= DELETE PRODUCT (SELLER) =================
+router.delete(
+  "/products/:id",
+  verifyToken,
+  allowRoles("seller"),
+  deleteProduct
 );
 
 export default router;
