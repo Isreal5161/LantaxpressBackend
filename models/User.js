@@ -15,6 +15,16 @@ const userSchema = new mongoose.Schema(
     logo: { type: String }, // store file path or URL
     state: { type: String },
     address: { type: String },
+    // Notifications for users/sellers
+    notifications: [
+      {
+        type: { type: String },
+        message: { type: String },
+        meta: { type: Object },
+        read: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

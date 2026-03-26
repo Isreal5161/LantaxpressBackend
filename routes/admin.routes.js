@@ -6,8 +6,10 @@ import {
   approveProduct,
   rejectProduct,
 } from "../controllers/admin.controller.js";
+import { getAllProducts } from "../controllers/admin.controller.js";
 
 const router = express.Router();
+import { adminUpdateProduct, adminDeleteProduct } from "../controllers/admin.controller.js";
 
 // GET PENDING PRODUCTS
 router.get(
@@ -31,6 +33,30 @@ router.put(
   verifyToken,
   allowRoles("admin"),
   rejectProduct
+);
+
+// GET ALL PRODUCTS
+router.get(
+  "/products",
+  verifyToken,
+  allowRoles("admin"),
+  getAllProducts
+);
+
+// ADMIN update product
+router.put(
+  "/products/:id",
+  verifyToken,
+  allowRoles("admin"),
+  adminUpdateProduct
+);
+
+// ADMIN delete product
+router.delete(
+  "/products/:id",
+  verifyToken,
+  allowRoles("admin"),
+  adminDeleteProduct
 );
 
 // GET REGISTERED USERS
