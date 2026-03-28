@@ -1,7 +1,7 @@
 import express from "express";
 import { getApprovedProducts } from "../controllers/product.controller.js";
 import { verifyToken } from "../middleware/auth.js";
-import User from "../models/user.js";
+import User from "../models/User.js";
 
 const router = express.Router();
 
