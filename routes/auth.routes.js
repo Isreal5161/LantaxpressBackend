@@ -8,8 +8,12 @@ import cloudinary from "../config/cloudinary.js";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 
-import { loginUser } from "../controllers/auth.controller.js";
-import { loginAdmin } from "../controllers/auth.controller.js";
+import {
+  getCurrentUser,
+  loginAdmin,
+  loginUser,
+  updateCurrentUser,
+} from "../controllers/auth.controller.js";
 
 const router = express.Router();
 
@@ -61,6 +65,7 @@ router.post("/register", upload.single("logo"), async (req, res) => {
     const {
       name,
       email,
+      phone,
       password,
       role,
       brandName,
@@ -93,6 +98,7 @@ router.post("/register", upload.single("logo"), async (req, res) => {
     const newUserData = {
       name,
       email,
+      phone,
       password: hashedPassword,
       role: role === "seller" ? "seller" : "user",
     };
@@ -137,9 +143,8 @@ router.post("/register", upload.single("logo"), async (req, res) => {
 router.post("/login", loginUser);
 
 // ================= CURRENT USER =================
-router.get("/me", verifyToken, (req, res) => {
-  res.json({ user: req.user });
-});
+router.get("/me", verifyToken, getCurrentUser);
+router.put("/me", verifyToken, upload.single("logo"), updateCurrentUser);
 
 // ================= ADMIN TEST ROUTE =================
 router.get(

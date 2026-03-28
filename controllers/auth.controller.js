@@ -3,6 +3,11 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Admin from "../models/Admin.js";
 
+const sanitizeUser = (user) => {
+  const { password, ...safeUser } = user.toObject();
+  return safeUser;
+};
+
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -41,12 +46,10 @@ export const loginUser = async (req, res) => {
     );
 
     // ❌ REMOVE PASSWORD FROM RESPONSE
-    const { password: _, ...safeUser } = user.toObject();
-
     res.json({
       message: "Login successful",
       token,
-      user: safeUser,
+      user: sanitizeUser(user),
     });
   } catch (error) {
     console.error(error);
@@ -93,5 +96,73 @@ export const loginAdmin = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const updateCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const {
+      name,
+      email,
+      phone,
+      brandName,
+      description,
+      categories,
+      state,
+      address,
+    } = req.body;
+
+    if (email && email !== user.email) {
+      const existingUser = await User.findOne({ email: email.toLowerCase(), _id: { $ne: user._id } });
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already in use" });
+      }
+      user.email = email.toLowerCase();
+    }
+
+    if (name !== undefined) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+
+    if (user.role === "seller") {
+      if (brandName !== undefined) user.brandName = brandName;
+      if (description !== undefined) user.description = description;
+      if (state !== undefined) user.state = state;
+      if (address !== undefined) user.address = address;
+      if (categories !== undefined) {
+        user.categories = typeof categories === "string" ? JSON.parse(categories) : categories;
+      }
+      if (req.file) {
+        user.logo = req.file.path;
+      }
+    }
+
+    await user.save();
+
+    res.json({
+      message: "Profile updated successfully",
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message || "Server error" });
   }
 };
