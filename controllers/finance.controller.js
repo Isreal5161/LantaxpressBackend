@@ -1,6 +1,7 @@
 import Order from "../models/Order.js";
 import User from "../models/User.js";
 import SellerWithdrawal from "../models/SellerWithdrawal.js";
+import { notifyAdmins, notifyUser } from "../utils/notifications.js";
 
 const ACTIVE_ORDER_STATUSES = new Set([
   "Pending",
@@ -151,6 +152,20 @@ export const createSellerWithdrawal = async (req, res) => {
     });
 
     const saved = await SellerWithdrawal.findById(withdrawal._id).populate("seller", "name email brandName");
+
+    await Promise.all([
+      notifyUser(req.user._id, {
+        type: "withdrawal:submitted",
+        message: `Your withdrawal request for NGN ${parsedAmount.toLocaleString()} has been submitted.`,
+        meta: { withdrawalId: withdrawal._id, amount: parsedAmount, status: "Pending" },
+      }),
+      notifyAdmins({
+        type: "withdrawal:requested",
+        message: `${req.user.brandName || req.user.name || "A seller"} requested a withdrawal of NGN ${parsedAmount.toLocaleString()}.`,
+        meta: { withdrawalId: withdrawal._id, sellerId: req.user._id, amount: parsedAmount },
+      }),
+    ]);
+
     res.status(201).json({
       message: "Withdrawal request submitted successfully",
       withdrawal: serializeWithdrawal(saved),
@@ -221,6 +236,20 @@ export const updateWithdrawalStatus = async (req, res) => {
     await withdrawal.save();
 
     const saved = await SellerWithdrawal.findById(withdrawal._id).populate("seller", "name email brandName");
+
+    await notifyUser(withdrawal.seller, {
+      type: `withdrawal:${status.toLowerCase()}`,
+      message: status === "Approved"
+        ? `Your withdrawal of NGN ${Number(withdrawal.amount || 0).toLocaleString()} was approved.`
+        : `Your withdrawal of NGN ${Number(withdrawal.amount || 0).toLocaleString()} was rejected.`,
+      meta: {
+        withdrawalId: withdrawal._id,
+        amount: withdrawal.amount,
+        status,
+        adminNotes: withdrawal.adminNotes || "",
+      },
+    });
+
     res.json({
       message: `Withdrawal ${status.toLowerCase()} successfully`,
       withdrawal: serializeWithdrawal(saved),

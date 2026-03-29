@@ -1,6 +1,7 @@
 import express from "express";
 import { verifyToken } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/roles.js";
+import Admin from "../models/Admin.js";
 import {
   getPendingProducts,
   approveProduct,
@@ -11,6 +12,11 @@ import {
   getAdminSellerPayments,
   updateWithdrawalStatus,
 } from "../controllers/finance.controller.js";
+import {
+  getSortedNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../utils/notifications.js";
 
 const router = express.Router();
 import { adminUpdateProduct, adminDeleteProduct } from "../controllers/admin.controller.js";
@@ -92,6 +98,48 @@ router.patch(
   verifyToken,
   allowRoles("admin"),
   updateWithdrawalStatus
+);
+
+router.get(
+  "/notifications",
+  verifyToken,
+  allowRoles("admin"),
+  async (req, res) => {
+    try {
+      const admin = await Admin.findById(req.user._id).select("notifications");
+      res.json(getSortedNotifications(admin?.notifications || []));
+    } catch (error) {
+      res.status(500).json({ message: error.message || "Failed to load notifications" });
+    }
+  }
+);
+
+router.put(
+  "/notifications/:id/read",
+  verifyToken,
+  allowRoles("admin"),
+  async (req, res) => {
+    try {
+      const result = await markNotificationRead(Admin, req.user._id, req.params.id);
+      res.status(result.status).json(result.body);
+    } catch (error) {
+      res.status(500).json({ message: error.message || "Failed to update notification" });
+    }
+  }
+);
+
+router.put(
+  "/notifications/read-all",
+  verifyToken,
+  allowRoles("admin"),
+  async (req, res) => {
+    try {
+      const result = await markAllNotificationsRead(Admin, req.user._id);
+      res.status(result.status).json(result.body);
+    } catch (error) {
+      res.status(500).json({ message: error.message || "Failed to update notifications" });
+    }
+  }
 );
 
 export default router;

@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import { notifyAdmins } from "../utils/notifications.js";
 
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
@@ -22,6 +23,12 @@ export const addProduct = async (req, res) => {
       images,
       seller: req.user._id,
       status: "pending", // 👈 important
+    });
+
+    await notifyAdmins({
+      type: "product:submitted",
+      message: `${req.user.brandName || req.user.name || "A seller"} submitted "${product.name}" for approval.`,
+      meta: { productId: product._id, sellerId: req.user._id, status: product.status },
     });
 
     res.status(201).json({
@@ -79,6 +86,14 @@ export const updateProduct = async (req, res) => {
     }
 
     await product.save();
+
+    if (product.status === "pending") {
+      await notifyAdmins({
+        type: "product:resubmitted",
+        message: `${req.user.brandName || req.user.name || "A seller"} updated "${product.name}" and it is waiting for approval again.`,
+        meta: { productId: product._id, sellerId: req.user._id, status: product.status },
+      });
+    }
 
     res.json({ message: 'Product updated', product });
   } catch (error) {

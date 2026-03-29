@@ -2,6 +2,11 @@ import express from "express";
 import { getApprovedProducts } from "../controllers/product.controller.js";
 import { verifyToken } from "../middleware/auth.js";
 import User from "../models/User.js";
+import {
+	getSortedNotifications,
+	markAllNotificationsRead,
+	markNotificationRead,
+} from "../utils/notifications.js";
 
 const router = express.Router();
 
@@ -11,7 +16,7 @@ router.get("/products", getApprovedProducts);
 router.get('/notifications', verifyToken, async (req, res) => {
 	try {
 		const user = await User.findById(req.user._id).select('notifications');
-		res.json(user.notifications || []);
+		res.json(getSortedNotifications(user?.notifications || []));
 	} catch (err) {
 		res.status(500).json({ message: err.message });
 	}
@@ -20,14 +25,17 @@ router.get('/notifications', verifyToken, async (req, res) => {
 // Mark a notification read
 router.put('/notifications/:id/read', verifyToken, async (req, res) => {
 	try {
-		const user = await User.findById(req.user._id);
-		if (!user) return res.status(404).json({ message: 'User not found' });
-		const nid = req.params.id;
-		const note = user.notifications.id(nid) || user.notifications.find(n => n._id && n._id.toString() === nid);
-		if (!note) return res.status(404).json({ message: 'Notification not found' });
-		note.read = true;
-		await user.save();
-		res.json({ message: 'Marked read' });
+		const result = await markNotificationRead(User, req.user._id, req.params.id);
+		res.status(result.status).json(result.body);
+	} catch (err) {
+		res.status(500).json({ message: err.message });
+	}
+});
+
+router.put('/notifications/read-all', verifyToken, async (req, res) => {
+	try {
+		const result = await markAllNotificationsRead(User, req.user._id);
+		res.status(result.status).json(result.body);
 	} catch (err) {
 		res.status(500).json({ message: err.message });
 	}

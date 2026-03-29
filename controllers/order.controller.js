@@ -1,5 +1,6 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import { notifyAdmins, notifyUser } from "../utils/notifications.js";
 
 const ORDER_STAGES = [
   "Pending",
@@ -156,6 +157,34 @@ export const createOrders = async (req, res) => {
       .populate("seller", "brandName email")
       .sort({ createdAt: -1 });
 
+    await Promise.allSettled([
+      ...hydratedOrders.map((order) => {
+        const item = order.items?.[0];
+        return notifyUser(order.buyer?._id || order.buyer, {
+          type: "order:created",
+          message: `Your order ${order.orderNumber} for ${item?.name || "your item"} has been placed successfully.`,
+          meta: { orderId: order._id, orderNumber: order.orderNumber, status: order.status },
+        });
+      }),
+      ...hydratedOrders.map((order) => {
+        const item = order.items?.[0];
+        return notifyUser(order.seller?._id || order.seller, {
+          type: "seller:new_order",
+          message: `You received a new order ${order.orderNumber} for ${item?.name || "a product"}.`,
+          meta: { orderId: order._id, orderNumber: order.orderNumber, status: order.status },
+        });
+      }),
+      notifyAdmins({
+        type: "order:new",
+        message: `${req.user.name || req.user.email || "A customer"} placed ${hydratedOrders.length} new order${hydratedOrders.length === 1 ? "" : "s"}.`,
+        meta: {
+          orderIds: hydratedOrders.map((order) => order._id),
+          orderNumbers: hydratedOrders.map((order) => order.orderNumber),
+          buyerId: req.user._id,
+        },
+      }),
+    ]);
+
     res.status(201).json({
       message: "Orders created successfully",
       primaryOrderNumber: hydratedOrders[0]?.orderNumber || null,
@@ -222,6 +251,20 @@ export const confirmOrderReceived = async (req, res) => {
     await order.save();
 
     const saved = await Order.findById(order._id).populate("buyer", "name email").populate("seller", "brandName email");
+
+    await Promise.allSettled([
+      notifyUser(saved.seller?._id || saved.seller, {
+        type: "order:completed",
+        message: `Order ${saved.orderNumber} has been confirmed as received by the buyer.`,
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, status: saved.status },
+      }),
+      notifyAdmins({
+        type: "order:completed",
+        message: `Order ${saved.orderNumber} was confirmed received by ${saved.buyer?.name || saved.buyer?.email || "the buyer"}.`,
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, sellerId: saved.seller?._id || saved.seller },
+      }),
+    ]);
+
     res.json(serializeOrder(saved));
   } catch (error) {
     res.status(500).json({ message: error.message || "Failed to confirm delivery" });
@@ -253,6 +296,20 @@ export const addOrderReview = async (req, res) => {
     await order.save();
 
     const saved = await Order.findById(order._id).populate("buyer", "name email").populate("seller", "brandName email");
+
+    await Promise.allSettled([
+      notifyUser(saved.seller?._id || saved.seller, {
+        type: "order:review",
+        message: `You received a new review for order ${saved.orderNumber}.`,
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, rating: Number(rating) },
+      }),
+      notifyAdmins({
+        type: "order:review",
+        message: `A new review was submitted for order ${saved.orderNumber}.`,
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, rating: Number(rating) },
+      }),
+    ]);
+
     res.json(serializeOrder(saved));
   } catch (error) {
     res.status(500).json({ message: error.message || "Failed to save review" });
@@ -312,6 +369,20 @@ export const updateOrderStatus = async (req, res) => {
     await order.save();
 
     const saved = await Order.findById(order._id).populate("buyer", "name email").populate("seller", "brandName email");
+
+    await Promise.allSettled([
+      notifyUser(saved.buyer?._id || saved.buyer, {
+        type: "order:status",
+        message: `Your order ${saved.orderNumber} is now ${status}.`,
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, status },
+      }),
+      notifyUser(saved.seller?._id || saved.seller, {
+        type: "seller:order_status",
+        message: `Order ${saved.orderNumber} has been updated to ${status}.`,
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, status },
+      }),
+    ]);
+
     res.json(serializeOrder(saved));
   } catch (error) {
     res.status(500).json({ message: error.message || "Failed to update status" });

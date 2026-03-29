@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
+import { notifyUser } from "../utils/notifications.js";
 
 // GET ALL PENDING PRODUCTS
 export const getPendingProducts = async (req, res) => {
@@ -23,19 +24,12 @@ export const approveProduct = async (req, res) => {
 
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    // notify seller
     try {
-      const seller = await User.findById(product.seller);
-      if (seller) {
-        seller.notifications = seller.notifications || [];
-        seller.notifications.unshift({
-          type: 'product:approved',
-          message: `Your product "${product.name}" was approved by admin.`,
-          meta: { productId: product._id },
-          read: false,
-        });
-        await seller.save();
-      }
+      await notifyUser(product.seller, {
+        type: 'product:approved',
+        message: `Your product "${product.name}" was approved by admin.`,
+        meta: { productId: product._id },
+      });
     } catch (nerr) {
       console.warn('Failed to notify seller on approve', nerr);
     }
@@ -57,19 +51,12 @@ export const rejectProduct = async (req, res) => {
 
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    // notify seller
     try {
-      const seller = await User.findById(product.seller);
-      if (seller) {
-        seller.notifications = seller.notifications || [];
-        seller.notifications.unshift({
-          type: 'product:rejected',
-          message: `Your product "${product.name}" was rejected by admin.`,
-          meta: { productId: product._id },
-          read: false,
-        });
-        await seller.save();
-      }
+      await notifyUser(product.seller, {
+        type: 'product:rejected',
+        message: `Your product "${product.name}" was rejected by admin.`,
+        meta: { productId: product._id },
+      });
     } catch (nerr) {
       console.warn('Failed to notify seller on reject', nerr);
     }
@@ -113,19 +100,12 @@ export const adminUpdateProduct = async (req, res) => {
 
     await product.save();
 
-    // notify seller about admin edit
     try {
-      const seller = await User.findById(product.seller);
-      if (seller) {
-        seller.notifications = seller.notifications || [];
-        seller.notifications.unshift({
-          type: 'product:admin_edit',
-          message: `Admin updated your product "${product.name}".`,
-          meta: { productId: product._id },
-          read: false,
-        });
-        await seller.save();
-      }
+      await notifyUser(product.seller, {
+        type: 'product:admin_edit',
+        message: `Admin updated your product "${product.name}".`,
+        meta: { productId: product._id },
+      });
     } catch (nerr) {
       console.warn('Failed to notify seller on admin edit', nerr);
     }
@@ -146,19 +126,12 @@ export const adminDeleteProduct = async (req, res) => {
 
     await Product.deleteOne({ _id: id });
 
-    // notify seller
     try {
-      const seller = await User.findById(product.seller);
-      if (seller) {
-        seller.notifications = seller.notifications || [];
-        seller.notifications.unshift({
-          type: 'product:deleted_by_admin',
-          message: `Admin deleted your product "${product.name}".`,
-          meta: { productId: product._id },
-          read: false,
-        });
-        await seller.save();
-      }
+      await notifyUser(product.seller, {
+        type: 'product:deleted_by_admin',
+        message: `Admin deleted your product "${product.name}".`,
+        meta: { productId: product._id },
+      });
     } catch (nerr) {
       console.warn('Failed to notify seller on admin delete', nerr);
     }
