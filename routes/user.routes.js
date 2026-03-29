@@ -3,6 +3,7 @@ import { getApprovedProducts } from "../controllers/product.controller.js";
 import { verifyToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import {
+	clearAllNotifications,
 	getSortedNotifications,
 	markAllNotificationsRead,
 	markNotificationRead,
@@ -35,6 +36,15 @@ router.put('/notifications/:id/read', verifyToken, async (req, res) => {
 router.put('/notifications/read-all', verifyToken, async (req, res) => {
 	try {
 		const result = await markAllNotificationsRead(User, req.user._id);
+		res.status(result.status).json(result.body);
+	} catch (err) {
+		res.status(500).json({ message: err.message });
+	}
+});
+
+router.delete('/notifications', verifyToken, async (req, res) => {
+	try {
+		const result = await clearAllNotifications(User, req.user._id);
 		res.status(result.status).json(result.body);
 	} catch (err) {
 		res.status(500).json({ message: err.message });

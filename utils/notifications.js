@@ -79,3 +79,15 @@ export const markAllNotificationsRead = async (Model, ownerId) => {
 
   return { status: 200, body: { message: "All notifications marked as read" } };
 };
+
+export const clearAllNotifications = async (Model, ownerId) => {
+  const owner = await Model.findById(ownerId);
+  if (!owner) {
+    return { status: 404, body: { message: "Owner not found" } };
+  }
+
+  owner.notifications = [];
+  await owner.save();
+
+  return { status: 200, body: { message: "All notifications cleared" } };
+};

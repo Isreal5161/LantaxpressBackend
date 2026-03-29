@@ -13,6 +13,7 @@ import {
   updateWithdrawalStatus,
 } from "../controllers/finance.controller.js";
 import {
+  clearAllNotifications,
   getSortedNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -138,6 +139,20 @@ router.put(
       res.status(result.status).json(result.body);
     } catch (error) {
       res.status(500).json({ message: error.message || "Failed to update notifications" });
+    }
+  }
+);
+
+router.delete(
+  "/notifications",
+  verifyToken,
+  allowRoles("admin"),
+  async (req, res) => {
+    try {
+      const result = await clearAllNotifications(Admin, req.user._id);
+      res.status(result.status).json(result.body);
+    } catch (error) {
+      res.status(500).json({ message: error.message || "Failed to clear notifications" });
     }
   }
 );
