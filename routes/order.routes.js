@@ -14,7 +14,7 @@ import {
 
 const router = express.Router();
 
-router.get("/track/:orderNumber", trackOrderByNumber);
+router.get("/track/:orderNumber", verifyToken, allowRoles("user"), trackOrderByNumber);
 
 router.post("/", verifyToken, allowRoles("user"), createOrders);
 router.get("/mine", verifyToken, allowRoles("user"), getBuyerOrders);

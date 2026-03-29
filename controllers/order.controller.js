@@ -65,6 +65,22 @@ const serializeOrder = (order) => {
   };
 };
 
+const isOrderOwnedByUser = (order, user) => {
+  if (!order || !user) return false;
+
+  const orderBuyerId = order.buyer?._id?.toString?.() || order.buyer?.toString?.() || "";
+  const currentUserId = user._id?.toString?.() || "";
+
+  if (orderBuyerId && currentUserId && orderBuyerId === currentUserId) {
+    return true;
+  }
+
+  const normalizedUserEmail = (user.email || "").trim().toLowerCase();
+  const buyerEmail = (order.contact?.email || order.buyer?.email || "").trim().toLowerCase();
+
+  return Boolean(normalizedUserEmail && buyerEmail && normalizedUserEmail === buyerEmail);
+};
+
 export const createOrders = async (req, res) => {
   try {
     const { cartItems, shippingAddress, paymentMethod, currency } = req.body;
@@ -173,6 +189,10 @@ export const trackOrderByNumber = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    if (!isOrderOwnedByUser(order, req.user)) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
     res.json(serializeOrder(order));
   } catch (error) {
     res.status(500).json({ message: error.message || "Failed to track order" });
@@ -181,13 +201,13 @@ export const trackOrderByNumber = async (req, res) => {
 
 export const confirmOrderReceived = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate("buyer", "name email");
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    if (order.buyer.toString() !== req.user._id.toString()) {
+    if (!isOrderOwnedByUser(order, req.user)) {
       return res.status(403).json({ message: "Not authorized to confirm this order" });
     }
 
@@ -215,12 +235,12 @@ export const addOrderReview = async (req, res) => {
       return res.status(400).json({ message: "Rating and comment are required" });
     }
 
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate("buyer", "name email");
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    if (order.buyer.toString() !== req.user._id.toString()) {
+    if (!isOrderOwnedByUser(order, req.user)) {
       return res.status(403).json({ message: "Not authorized to review this order" });
     }
 
