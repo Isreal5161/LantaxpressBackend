@@ -158,19 +158,19 @@ export const createOrders = async (req, res) => {
       .sort({ createdAt: -1 });
 
     await Promise.allSettled([
-      ...hydratedOrders.map((order) => {
-        const item = order.items?.[0];
-        return notifyUser(order.buyer?._id || order.buyer, {
-          type: "order:created",
-          message: `Your order ${order.orderNumber} for ${item?.name || "your item"} has been placed successfully.`,
-          meta: { orderId: order._id, orderNumber: order.orderNumber, status: order.status },
-        });
+      notifyUser(req.user._id, {
+        type: "payment:successful",
+        message: `Your payment for ${hydratedOrders.length} order${hydratedOrders.length === 1 ? "" : "s"} was successful.`,
+        meta: {
+          orderIds: hydratedOrders.map((order) => order._id),
+          orderNumbers: hydratedOrders.map((order) => order.orderNumber),
+        },
       }),
       ...hydratedOrders.map((order) => {
         const item = order.items?.[0];
         return notifyUser(order.seller?._id || order.seller, {
-          type: "seller:new_order",
-          message: `You received a new order ${order.orderNumber} for ${item?.name || "a product"}.`,
+          type: "order:placed",
+          message: `A new order ${order.orderNumber} was placed for ${item?.name || "your product"}.`,
           meta: { orderId: order._id, orderNumber: order.orderNumber, status: order.status },
         });
       }),
@@ -181,6 +181,17 @@ export const createOrders = async (req, res) => {
           orderIds: hydratedOrders.map((order) => order._id),
           orderNumbers: hydratedOrders.map((order) => order.orderNumber),
           buyerId: req.user._id,
+          sellerIds: hydratedOrders.map((order) => order.seller?._id || order.seller),
+        },
+      }),
+      notifyAdmins({
+        type: "payment:successful",
+        message: `${req.user.name || req.user.email || "A customer"} completed payment for ${hydratedOrders.length} order${hydratedOrders.length === 1 ? "" : "s"}.`,
+        meta: {
+          orderIds: hydratedOrders.map((order) => order._id),
+          orderNumbers: hydratedOrders.map((order) => order.orderNumber),
+          buyerId: req.user._id,
+          sellerIds: hydratedOrders.map((order) => order.seller?._id || order.seller),
         },
       }),
     ]);
