@@ -1,6 +1,7 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import { notifyAdmins, notifyUser } from "../utils/notifications.js";
+import { calculateProductCharge, getPlatformFeeSettings } from "../utils/platformFees.js";
 
 const ORDER_STAGES = [
   "Pending",
@@ -97,6 +98,8 @@ export const createOrders = async (req, res) => {
     const productIds = cartItems.map((item) => item.id || item.productId).filter(Boolean);
     const products = await Product.find({ _id: { $in: productIds }, status: "approved" }).populate("seller", "brandName email");
     const productMap = new Map(products.map((product) => [product._id.toString(), product]));
+    const feeSettings = await getPlatformFeeSettings();
+    const productChargePercent = Number(feeSettings?.productChargePercent) || 0;
 
     const now = new Date();
     const createdOrders = [];
@@ -111,6 +114,8 @@ export const createOrders = async (req, res) => {
 
       const quantity = Math.max(1, Number(cartItem.quantity) || 1);
       const unitPrice = Number(product.price) || 0;
+      const grossAmount = unitPrice * quantity;
+      const productCharge = calculateProductCharge(grossAmount, productChargePercent);
       const order = await Order.create({
         orderNumber: buildOrderNumber(),
         buyer: req.user._id,
@@ -141,7 +146,10 @@ export const createOrders = async (req, res) => {
             quantity,
           },
         ],
-        amount: unitPrice * quantity,
+        amount: grossAmount,
+        productChargePercent: productCharge.chargePercent,
+        productChargeAmount: productCharge.chargeAmount,
+        sellerNetAmount: productCharge.sellerNetAmount,
         status: "Pending",
         stageTimestamps: {
           Pending: now,

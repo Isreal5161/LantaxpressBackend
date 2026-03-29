@@ -41,6 +41,9 @@ const orderSchema = new mongoose.Schema(
       },
     ],
     amount: { type: Number, required: true },
+    productChargePercent: { type: Number, default: 0 },
+    productChargeAmount: { type: Number, default: 0 },
+    sellerNetAmount: { type: Number, default: 0 },
     status: {
       type: String,
       enum: [

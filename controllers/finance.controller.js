@@ -2,6 +2,13 @@ import Order from "../models/Order.js";
 import User from "../models/User.js";
 import SellerWithdrawal from "../models/SellerWithdrawal.js";
 import { notifyAdmins, notifyUser } from "../utils/notifications.js";
+import {
+  calculateWithdrawalCharge,
+  getPlatformFeeSettings,
+  resolveOrderNetAmount,
+  serializePlatformFeeSettings,
+  updatePlatformFeeSettings,
+} from "../utils/platformFees.js";
 
 const ACTIVE_ORDER_STATUSES = new Set([
   "Pending",
@@ -19,6 +26,9 @@ const serializeWithdrawal = (withdrawal) => ({
   sellerName: withdrawal.seller?.brandName || withdrawal.seller?.name || "Seller",
   sellerEmail: withdrawal.seller?.email || "",
   amount: withdrawal.amount || 0,
+  chargePercent: withdrawal.chargePercent || 0,
+  chargeAmount: withdrawal.chargeAmount || 0,
+  payoutAmount: withdrawal.payoutAmount || 0,
   currency: withdrawal.currency || "NGN",
   method: withdrawal.method || "Bank Transfer",
   accountName: withdrawal.accountName || "",
@@ -32,7 +42,7 @@ const serializeWithdrawal = (withdrawal) => ({
   updatedAt: withdrawal.updatedAt,
 });
 
-const resolveOrderAmount = (order) => Number(order.amount) || 0;
+const resolveOrderAmount = (order, feePercent = 0) => resolveOrderNetAmount(order, feePercent);
 
 const isSettledOrder = (order) => order.status === "Completed" || Boolean(order.received);
 
@@ -66,13 +76,15 @@ const buildIncomeTrend = (orders) => {
 };
 
 const buildSellerFinanceSummary = async (sellerId) => {
-  const [orders, withdrawals] = await Promise.all([
+  const [orders, withdrawals, feeSettings] = await Promise.all([
     Order.find({ seller: sellerId }).sort({ createdAt: -1 }),
     SellerWithdrawal.find({ seller: sellerId }).sort({ createdAt: -1 }),
+    getPlatformFeeSettings(),
   ]);
+  const serializedFeeSettings = serializePlatformFeeSettings(feeSettings);
 
-  const totalRevenue = orders.filter(isSettledOrder).reduce((sum, order) => sum + resolveOrderAmount(order), 0);
-  const pendingBalance = orders.filter(isPendingOrder).reduce((sum, order) => sum + resolveOrderAmount(order), 0);
+  const totalRevenue = orders.filter(isSettledOrder).reduce((sum, order) => sum + resolveOrderAmount(order, serializedFeeSettings.productChargePercent), 0);
+  const pendingBalance = orders.filter(isPendingOrder).reduce((sum, order) => sum + resolveOrderAmount(order, serializedFeeSettings.productChargePercent), 0);
   const completedWithdrawals = withdrawals
     .filter((withdrawal) => withdrawal.status === "Approved")
     .reduce((sum, withdrawal) => sum + (Number(withdrawal.amount) || 0), 0);
@@ -97,12 +109,22 @@ const buildSellerFinanceSummary = async (sellerId) => {
       .slice(0, 5)
       .map((order) => ({
         id: order.orderNumber,
-        amount: resolveOrderAmount(order),
+        amount: resolveOrderAmount(order, serializedFeeSettings.productChargePercent),
         status: order.status,
         receivedAt: order.receivedAt || order.updatedAt || order.createdAt,
       })),
     recentWithdrawals: withdrawals.slice(0, 5).map(serializeWithdrawal),
+    feeSettings: serializedFeeSettings,
   };
+};
+
+export const getSellerPlatformFees = async (req, res) => {
+  try {
+    const settings = await getPlatformFeeSettings();
+    res.json(serializePlatformFeeSettings(settings));
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Failed to load platform fees" });
+  }
 };
 
 export const getSellerFinanceSummary = async (req, res) => {
@@ -141,9 +163,14 @@ export const createSellerWithdrawal = async (req, res) => {
       return res.status(400).json({ message: "Withdrawal amount exceeds withdrawable balance" });
     }
 
+    const withdrawalCharge = calculateWithdrawalCharge(parsedAmount, summary.feeSettings?.withdrawalChargePercent || 0);
+
     const withdrawal = await SellerWithdrawal.create({
       seller: req.user._id,
       amount: parsedAmount,
+      chargePercent: withdrawalCharge.chargePercent,
+      chargeAmount: withdrawalCharge.chargeAmount,
+      payoutAmount: withdrawalCharge.payoutAmount,
       currency: "NGN",
       method: method || "Bank Transfer",
       bankName: bankName || "",
@@ -156,8 +183,17 @@ export const createSellerWithdrawal = async (req, res) => {
     await Promise.all([
       notifyUser(req.user._id, {
         type: "withdrawal:submitted",
-        message: `Your withdrawal request for NGN ${parsedAmount.toLocaleString()} has been submitted.`,
-        meta: { withdrawalId: withdrawal._id, amount: parsedAmount, status: "Pending" },
+        message: withdrawalCharge.chargePercent > 0
+          ? `Your withdrawal request for NGN ${parsedAmount.toLocaleString()} was submitted. Charge: NGN ${withdrawalCharge.chargeAmount.toLocaleString()}. Net payout: NGN ${withdrawalCharge.payoutAmount.toLocaleString()}.`
+          : `Your withdrawal request for NGN ${parsedAmount.toLocaleString()} has been submitted with no withdrawal charge.`,
+        meta: {
+          withdrawalId: withdrawal._id,
+          amount: parsedAmount,
+          status: "Pending",
+          chargePercent: withdrawalCharge.chargePercent,
+          chargeAmount: withdrawalCharge.chargeAmount,
+          payoutAmount: withdrawalCharge.payoutAmount,
+        },
       }),
       notifyAdmins({
         type: "withdrawal:requested",
@@ -201,9 +237,22 @@ export const getAdminSellerPayments = async (req, res) => {
     res.json({
       sellers: summaries,
       pendingWithdrawals: pendingWithdrawals.map(serializeWithdrawal),
+      feeSettings: serializePlatformFeeSettings(await getPlatformFeeSettings()),
     });
   } catch (error) {
     res.status(500).json({ message: error.message || "Failed to load seller payments" });
+  }
+};
+
+export const updateAdminPlatformFees = async (req, res) => {
+  try {
+    const settings = await updatePlatformFeeSettings(req.body || {});
+    res.json({
+      message: "Platform fee settings updated successfully",
+      feeSettings: serializePlatformFeeSettings(settings),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Failed to update platform fees" });
   }
 };
 
@@ -240,11 +289,14 @@ export const updateWithdrawalStatus = async (req, res) => {
     await notifyUser(saved.seller?._id || withdrawal.seller, {
       type: `withdrawal:${status.toLowerCase()}`,
       message: status === "Approved"
-        ? `Admin approved your payout request of NGN ${Number(withdrawal.amount || 0).toLocaleString()}.`
+        ? `Admin approved your payout request of NGN ${Number(withdrawal.amount || 0).toLocaleString()}. You will receive NGN ${Number(withdrawal.payoutAmount || withdrawal.amount || 0).toLocaleString()}.`
         : `Your withdrawal of NGN ${Number(withdrawal.amount || 0).toLocaleString()} was rejected.`,
       meta: {
         withdrawalId: withdrawal._id,
         amount: withdrawal.amount,
+        chargePercent: withdrawal.chargePercent || 0,
+        chargeAmount: withdrawal.chargeAmount || 0,
+        payoutAmount: withdrawal.payoutAmount || withdrawal.amount || 0,
         status,
         adminNotes: withdrawal.adminNotes || "",
       },

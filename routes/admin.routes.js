@@ -10,6 +10,7 @@ import {
 import { getAllProducts } from "../controllers/admin.controller.js";
 import {
   getAdminSellerPayments,
+  updateAdminPlatformFees,
   updateWithdrawalStatus,
 } from "../controllers/finance.controller.js";
 import {
@@ -92,6 +93,13 @@ router.get(
   verifyToken,
   allowRoles("admin"),
   getAdminSellerPayments
+);
+
+router.patch(
+  "/platform-fees",
+  verifyToken,
+  allowRoles("admin"),
+  updateAdminPlatformFees
 );
 
 router.patch(

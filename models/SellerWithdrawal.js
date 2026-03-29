@@ -4,6 +4,9 @@ const sellerWithdrawalSchema = new mongoose.Schema(
   {
     seller: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     amount: { type: Number, required: true, min: 0 },
+    chargePercent: { type: Number, default: 0 },
+    chargeAmount: { type: Number, default: 0 },
+    payoutAmount: { type: Number, default: 0 },
     currency: { type: String, default: "NGN" },
     method: { type: String, default: "Bank Transfer" },
     accountName: { type: String, trim: true, default: "" },

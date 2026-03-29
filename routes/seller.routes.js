@@ -8,6 +8,7 @@ import {
 import { updateProduct, deleteProduct } from "../controllers/product.controller.js";
 import {
   createSellerWithdrawal,
+  getSellerPlatformFees,
   getSellerFinanceSummary,
   getSellerWithdrawals,
 } from "../controllers/finance.controller.js";
@@ -60,6 +61,13 @@ router.get(
       next(err);
     }
   }
+);
+
+router.get(
+  "/platform-fees",
+  verifyToken,
+  allowRoles("seller"),
+  getSellerPlatformFees
 );
 
 router.get(
