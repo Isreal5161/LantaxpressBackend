@@ -237,10 +237,10 @@ export const updateWithdrawalStatus = async (req, res) => {
 
     const saved = await SellerWithdrawal.findById(withdrawal._id).populate("seller", "name email brandName");
 
-    await notifyUser(withdrawal.seller, {
+    await notifyUser(saved.seller?._id || withdrawal.seller, {
       type: `withdrawal:${status.toLowerCase()}`,
       message: status === "Approved"
-        ? `Your withdrawal of NGN ${Number(withdrawal.amount || 0).toLocaleString()} was approved.`
+        ? `Admin approved your payout request of NGN ${Number(withdrawal.amount || 0).toLocaleString()}.`
         : `Your withdrawal of NGN ${Number(withdrawal.amount || 0).toLocaleString()} was rejected.`,
       meta: {
         withdrawalId: withdrawal._id,
