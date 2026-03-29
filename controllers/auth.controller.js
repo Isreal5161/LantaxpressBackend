@@ -124,6 +124,7 @@ export const updateCurrentUser = async (req, res) => {
       name,
       email,
       phone,
+      country,
       brandName,
       description,
       categories,
@@ -141,6 +142,7 @@ export const updateCurrentUser = async (req, res) => {
 
     if (name !== undefined) user.name = name;
     if (phone !== undefined) user.phone = phone;
+    if (country !== undefined) user.country = country;
 
     if (user.role === "seller") {
       if (brandName !== undefined) user.brandName = brandName;

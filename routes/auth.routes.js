@@ -67,6 +67,7 @@ router.post("/register", upload.single("logo"), async (req, res) => {
       email,
       phone,
       password,
+      country,
       role,
       brandName,
       description,
@@ -99,6 +100,7 @@ router.post("/register", upload.single("logo"), async (req, res) => {
       name,
       email,
       phone,
+      country: country || "Nigeria",
       password: hashedPassword,
       role: role === "seller" ? "seller" : "user",
     };
