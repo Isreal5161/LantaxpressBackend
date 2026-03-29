@@ -6,6 +6,11 @@ import {
   getSellerProducts,
 } from "../controllers/product.controller.js";
 import { updateProduct, deleteProduct } from "../controllers/product.controller.js";
+import {
+  createSellerWithdrawal,
+  getSellerFinanceSummary,
+  getSellerWithdrawals,
+} from "../controllers/finance.controller.js";
 
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
@@ -55,6 +60,27 @@ router.get(
       next(err);
     }
   }
+);
+
+router.get(
+  "/finance/summary",
+  verifyToken,
+  allowRoles("seller"),
+  getSellerFinanceSummary
+);
+
+router.get(
+  "/withdrawals",
+  verifyToken,
+  allowRoles("seller"),
+  getSellerWithdrawals
+);
+
+router.post(
+  "/withdrawals",
+  verifyToken,
+  allowRoles("seller"),
+  createSellerWithdrawal
 );
 
 // ================= UPDATE PRODUCT (SELLER) =================

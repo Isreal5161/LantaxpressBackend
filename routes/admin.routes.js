@@ -7,6 +7,10 @@ import {
   rejectProduct,
 } from "../controllers/admin.controller.js";
 import { getAllProducts } from "../controllers/admin.controller.js";
+import {
+  getAdminSellerPayments,
+  updateWithdrawalStatus,
+} from "../controllers/finance.controller.js";
 
 const router = express.Router();
 import { adminUpdateProduct, adminDeleteProduct } from "../controllers/admin.controller.js";
@@ -74,6 +78,20 @@ router.get(
   verifyToken,
   allowRoles("admin"),
   (req, res, next) => import("../controllers/admin.controller.js").then(m => m.getOrdersToday(req, res, next)).catch(next)
+);
+
+router.get(
+  "/seller-payments",
+  verifyToken,
+  allowRoles("admin"),
+  getAdminSellerPayments
+);
+
+router.patch(
+  "/withdrawals/:id",
+  verifyToken,
+  allowRoles("admin"),
+  updateWithdrawalStatus
 );
 
 export default router;
