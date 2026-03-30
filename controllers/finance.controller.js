@@ -42,7 +42,7 @@ const serializeWithdrawal = (withdrawal) => ({
   updatedAt: withdrawal.updatedAt,
 });
 
-const resolveOrderAmount = (order, feePercent = 0) => resolveOrderNetAmount(order, feePercent);
+const resolveOrderAmount = (order) => resolveOrderNetAmount(order, 0);
 
 const isSettledOrder = (order) => order.status === "Completed" || Boolean(order.received);
 
@@ -83,8 +83,8 @@ const buildSellerFinanceSummary = async (sellerId) => {
   ]);
   const serializedFeeSettings = serializePlatformFeeSettings(feeSettings);
 
-  const totalRevenue = orders.filter(isSettledOrder).reduce((sum, order) => sum + resolveOrderAmount(order, serializedFeeSettings.productChargePercent), 0);
-  const pendingBalance = orders.filter(isPendingOrder).reduce((sum, order) => sum + resolveOrderAmount(order, serializedFeeSettings.productChargePercent), 0);
+  const totalRevenue = orders.filter(isSettledOrder).reduce((sum, order) => sum + resolveOrderAmount(order), 0);
+  const pendingBalance = orders.filter(isPendingOrder).reduce((sum, order) => sum + resolveOrderAmount(order), 0);
   const completedWithdrawals = withdrawals
     .filter((withdrawal) => withdrawal.status === "Approved")
     .reduce((sum, withdrawal) => sum + (Number(withdrawal.amount) || 0), 0);
@@ -109,7 +109,7 @@ const buildSellerFinanceSummary = async (sellerId) => {
       .slice(0, 5)
       .map((order) => ({
         id: order.orderNumber,
-        amount: resolveOrderAmount(order, serializedFeeSettings.productChargePercent),
+        amount: resolveOrderAmount(order),
         status: order.status,
         receivedAt: order.receivedAt || order.updatedAt || order.createdAt,
       })),

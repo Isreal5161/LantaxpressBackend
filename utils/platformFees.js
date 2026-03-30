@@ -56,9 +56,27 @@ export const calculateWithdrawalCharge = (amount, percent) => {
 };
 
 export const resolveOrderNetAmount = (order, fallbackPercent = 0) => {
-  if (typeof order?.sellerNetAmount === "number") {
-    return Number(order.sellerNetAmount) || 0;
+  const grossAmount = Number(order?.amount) || 0;
+  const storedNetAmount = Number(order?.sellerNetAmount);
+  const storedChargeAmount = Number(order?.productChargeAmount);
+  const storedChargePercent = Number(order?.productChargePercent);
+
+  const hasStoredFeeSnapshot =
+    Number.isFinite(storedChargeAmount) && storedChargeAmount > 0 ||
+    Number.isFinite(storedChargePercent) && storedChargePercent > 0;
+
+  const hasMeaningfulStoredNetAmount =
+    Number.isFinite(storedNetAmount) &&
+    (storedNetAmount > 0 || grossAmount === 0 || hasStoredFeeSnapshot);
+
+  if (hasMeaningfulStoredNetAmount) {
+    return Math.max(storedNetAmount, 0);
   }
 
-  return calculateProductCharge(order?.amount, fallbackPercent).sellerNetAmount;
+  const orderFeePercent = Number(order?.productChargePercent);
+  const resolvedPercent = Number.isFinite(orderFeePercent)
+    ? clampPercent(orderFeePercent)
+    : clampPercent(fallbackPercent);
+
+  return calculateProductCharge(grossAmount, resolvedPercent).sellerNetAmount;
 };
