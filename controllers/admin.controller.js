@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import Order from "../models/Order.js";
 import { notifyUser } from "../utils/notifications.js";
 import { getSellerApprovalStatus } from "../utils/sellerApproval.js";
+import { assertCategoryExists } from "../utils/categories.js";
 
 // GET ALL PENDING PRODUCTS
 export const getPendingProducts = async (req, res) => {
@@ -89,7 +90,13 @@ export const adminUpdateProduct = async (req, res) => {
     if (name) product.name = name;
     if (description) product.description = description;
     if (price !== undefined) product.price = price;
-    if (category) product.category = category;
+    if (category !== undefined) {
+      try {
+        product.category = await assertCategoryExists(category);
+      } catch (categoryError) {
+        return res.status(400).json({ message: categoryError.message });
+      }
+    }
     if (brand) product.brand = brand;
     if (stock !== undefined) product.stock = stock;
     if (status) product.status = status;

@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { verifyToken, authorizeRoles } from "../middleware/auth.js";
 import { notifyAdmins, notifyUser } from "../utils/notifications.js";
+import { sanitizeCategorySelection } from "../utils/categories.js";
 
 import cloudinary from "../config/cloudinary.js";
 import multer from "multer";
@@ -108,11 +109,15 @@ router.post("/register", upload.single("logo"), async (req, res) => {
 
     // ✅ SELLER DATA
     if (role === "seller") {
+      let parsedCategories = [];
+
+      if (categories) {
+        parsedCategories = JSON.parse(categories);
+      }
+
       newUserData.brandName = brandName;
       newUserData.description = description;
-      newUserData.categories = categories
-        ? JSON.parse(categories)
-        : [];
+      newUserData.categories = await sanitizeCategorySelection(parsedCategories);
       newUserData.state = state;
       newUserData.address = address;
       newUserData.sellerApprovalStatus = "pending";

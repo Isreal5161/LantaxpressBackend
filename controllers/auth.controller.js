@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Admin from "../models/Admin.js";
+import { sanitizeCategorySelection } from "../utils/categories.js";
 
 const sanitizeUser = (user) => {
   const { password, ...safeUser } = user.toObject();
@@ -150,7 +151,8 @@ export const updateCurrentUser = async (req, res) => {
       if (state !== undefined) user.state = state;
       if (address !== undefined) user.address = address;
       if (categories !== undefined) {
-        user.categories = typeof categories === "string" ? JSON.parse(categories) : categories;
+        const parsedCategories = typeof categories === "string" ? JSON.parse(categories) : categories;
+        user.categories = await sanitizeCategorySelection(parsedCategories);
       }
       if (req.file) {
         user.logo = req.file.path;

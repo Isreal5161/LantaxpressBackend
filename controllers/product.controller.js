@@ -3,14 +3,15 @@ import Order from "../models/Order.js";
 import { notifyAdmins } from "../utils/notifications.js";
 import { normalizeProductPricing } from "../utils/productPricing.js";
 import { getSellerApprovalMessage, getSellerApprovalStatus } from "../utils/sellerApproval.js";
+import { assertCategoryExists } from "../utils/categories.js";
 
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
     const { name, description, price, discountPrice, discountPercent, category, stock, brand } = req.body;
 
-    if (!name || !price) {
-      return res.status(400).json({ message: "Name and price are required" });
+    if (!name || !price || !category) {
+      return res.status(400).json({ message: "Name, price, and category are required" });
     }
 
     let pricing;
@@ -18,6 +19,13 @@ export const addProduct = async (req, res) => {
       pricing = normalizeProductPricing({ price, discountPrice, discountPercent });
     } catch (pricingError) {
       return res.status(400).json({ message: pricingError.message });
+    }
+
+    let validatedCategory;
+    try {
+      validatedCategory = await assertCategoryExists(category);
+    } catch (categoryError) {
+      return res.status(400).json({ message: categoryError.message });
     }
 
     const images = req.files ? req.files.map(file => file.path) : [];
@@ -28,7 +36,7 @@ export const addProduct = async (req, res) => {
       price: pricing.price,
       discountPrice: pricing.discountPrice,
       discountPercent: pricing.discountPercent,
-      category,
+      category: validatedCategory,
       brand,
       stock,
       images,
@@ -98,7 +106,13 @@ export const updateProduct = async (req, res) => {
     product.price = pricing.price;
     product.discountPrice = pricing.discountPrice;
     product.discountPercent = pricing.discountPercent;
-    if (category) product.category = category;
+    if (category !== undefined) {
+      try {
+        product.category = await assertCategoryExists(category);
+      } catch (categoryError) {
+        return res.status(400).json({ message: categoryError.message });
+      }
+    }
     if (brand) product.brand = brand;
     if (stock !== undefined) product.stock = stock;
 
