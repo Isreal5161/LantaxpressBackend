@@ -13,13 +13,11 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-categorySchema.pre("validate", function syncNormalizedTitle(next) {
+categorySchema.pre("validate", function syncNormalizedTitle() {
   if (typeof this.title === "string") {
     this.title = this.title.trim().replace(/\s+/g, " ");
     this.normalizedTitle = this.title.toLowerCase();
   }
-
-  next();
 });
 
 export default mongoose.model("Category", categorySchema);
