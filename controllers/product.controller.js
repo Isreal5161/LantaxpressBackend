@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { notifyAdmins } from "../utils/notifications.js";
+import { getSellerApprovalMessage, getSellerApprovalStatus } from "../utils/sellerApproval.js";
 
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
@@ -46,7 +47,11 @@ export const getSellerProducts = async (req, res) => {
   try {
     const products = await Product.find({ seller: req.user._id });
 
-    res.json(products);
+    res.json({
+      products,
+      approvalStatus: getSellerApprovalStatus(req.user),
+      approvalMessage: getSellerApprovalMessage(req.user),
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -196,6 +201,8 @@ export const getSellerDashboard = async (req, res) => {
       productsListed,
       productsPending,
       pendingOrders,
+      approvalStatus: getSellerApprovalStatus(req.user),
+      approvalMessage: getSellerApprovalMessage(req.user),
       recentOrders,
       dailyRevenue,
     });

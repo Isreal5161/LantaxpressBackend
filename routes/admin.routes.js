@@ -6,6 +6,9 @@ import {
   getPendingProducts,
   approveProduct,
   rejectProduct,
+  getSellerRequests,
+  approveSellerRequest,
+  rejectSellerRequest,
 } from "../controllers/admin.controller.js";
 import { getAllProducts } from "../controllers/admin.controller.js";
 import {
@@ -24,6 +27,27 @@ const router = express.Router();
 import { adminUpdateProduct, adminDeleteProduct } from "../controllers/admin.controller.js";
 
 // GET PENDING PRODUCTS
+router.get(
+  "/seller-requests",
+  verifyToken,
+  allowRoles("admin"),
+  getSellerRequests
+);
+
+router.put(
+  "/seller-requests/:id/approve",
+  verifyToken,
+  allowRoles("admin"),
+  approveSellerRequest
+);
+
+router.put(
+  "/seller-requests/:id/reject",
+  verifyToken,
+  allowRoles("admin"),
+  rejectSellerRequest
+);
+
 router.get(
   "/products/pending",
   verifyToken,

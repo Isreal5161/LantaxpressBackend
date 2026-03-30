@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Admin from "../models/Admin.js";
+import { getSellerApprovalMessage, isSellerApproved } from "../utils/sellerApproval.js";
 
 // ✅ VERIFY TOKEN
 export const verifyToken = async (req, res, next) => {
@@ -74,4 +75,23 @@ export const authorizeRoles = (...roles) => {
 
     return res.status(403).json({ message: "Access denied: insufficient permissions" });
   };
+};
+
+export const requireApprovedSeller = (req, res, next) => {
+  if (req.userSource === "admin") {
+    return next();
+  }
+
+  if (req.user?.role !== "seller") {
+    return res.status(403).json({ message: "Access denied: seller only" });
+  }
+
+  if (isSellerApproved(req.user)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    message: getSellerApprovalMessage(req.user),
+    approvalStatus: req.user?.sellerApprovalStatus || "pending",
+  });
 };

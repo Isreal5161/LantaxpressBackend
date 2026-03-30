@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema(
     country: { type: String, default: "Nigeria" },
     role: { type: String, enum: ["user", "seller", "admin"], default: "user" },
     isVerified: { type: Boolean, default: false },
+    sellerApprovalStatus: { type: String, enum: ["pending", "approved", "rejected"] },
+    sellerApprovalReviewedAt: { type: Date },
 
     // Seller-specific fields
     brandName: { type: String },

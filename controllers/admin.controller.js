@@ -2,6 +2,7 @@ import Product from "../models/Product.js";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
 import { notifyUser } from "../utils/notifications.js";
+import { getSellerApprovalStatus } from "../utils/sellerApproval.js";
 
 // GET ALL PENDING PRODUCTS
 export const getPendingProducts = async (req, res) => {
@@ -146,7 +147,7 @@ export const adminDeleteProduct = async (req, res) => {
 // GET ALL REGISTERED USERS
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("name email role brandName isVerified address state createdAt").sort({ createdAt: -1 });
+    const users = await User.find().select("name email role brandName isVerified sellerApprovalStatus address state phone createdAt").sort({ createdAt: -1 });
     res.json({ users });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -166,6 +167,72 @@ export const getOrdersToday = async (req, res) => {
     const totalAmount = orders.reduce((acc, o) => acc + (o.amount || 0), 0);
 
     res.json({ totalOrders, totalAmount, orders });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getSellerRequests = async (req, res) => {
+  try {
+    const sellers = await User.find({ role: "seller", sellerApprovalStatus: "pending" })
+      .select("name email phone brandName description categories state address logo createdAt sellerApprovalStatus")
+      .sort({ createdAt: -1 });
+
+    res.json({ requests: sellers });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const approveSellerRequest = async (req, res) => {
+  try {
+    const seller = await User.findOne({ _id: req.params.id, role: "seller" });
+    if (!seller) {
+      return res.status(404).json({ message: "Seller not found" });
+    }
+
+    seller.sellerApprovalStatus = "approved";
+    seller.sellerApprovalReviewedAt = new Date();
+    seller.isVerified = true;
+    await seller.save();
+
+    await notifyUser(seller._id, {
+      type: "seller:approved",
+      message: "Your seller account has been approved by admin. You can now upload products and use seller features.",
+      meta: { approvalStatus: seller.sellerApprovalStatus },
+    });
+
+    res.json({
+      message: "Seller approved successfully",
+      seller,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const rejectSellerRequest = async (req, res) => {
+  try {
+    const seller = await User.findOne({ _id: req.params.id, role: "seller" });
+    if (!seller) {
+      return res.status(404).json({ message: "Seller not found" });
+    }
+
+    seller.sellerApprovalStatus = "rejected";
+    seller.sellerApprovalReviewedAt = new Date();
+    seller.isVerified = false;
+    await seller.save();
+
+    await notifyUser(seller._id, {
+      type: "seller:rejected",
+      message: "Your seller account request was reviewed but not approved by admin. Please update your seller information and contact support if needed.",
+      meta: { approvalStatus: seller.sellerApprovalStatus },
+    });
+
+    res.json({
+      message: "Seller request rejected",
+      seller,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

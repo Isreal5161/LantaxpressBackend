@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyToken } from "../middleware/auth.js";
+import { requireApprovedSeller, verifyToken } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/roles.js";
 import {
   addProduct,
@@ -35,6 +35,7 @@ router.post(
   "/add-product",
   verifyToken,
   allowRoles("seller"),
+  requireApprovedSeller,
   upload.array("images", 5),
   addProduct
 );
@@ -88,6 +89,7 @@ router.post(
   "/withdrawals",
   verifyToken,
   allowRoles("seller"),
+  requireApprovedSeller,
   createSellerWithdrawal
 );
 
@@ -96,6 +98,7 @@ router.put(
   "/products/:id",
   verifyToken,
   allowRoles("seller"),
+  requireApprovedSeller,
   upload.array("images", 5),
   updateProduct
 );
@@ -105,6 +108,7 @@ router.delete(
   "/products/:id",
   verifyToken,
   allowRoles("seller"),
+  requireApprovedSeller,
   deleteProduct
 );
 

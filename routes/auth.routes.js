@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { verifyToken, authorizeRoles } from "../middleware/auth.js";
+import { notifyAdmins, notifyUser } from "../utils/notifications.js";
 
 import cloudinary from "../config/cloudinary.js";
 import multer from "multer";
@@ -114,6 +115,8 @@ router.post("/register", upload.single("logo"), async (req, res) => {
         : [];
       newUserData.state = state;
       newUserData.address = address;
+      newUserData.sellerApprovalStatus = "pending";
+      newUserData.sellerApprovalReviewedAt = null;
 
       if (req.file) {
         newUserData.logo = req.file.path;
@@ -129,6 +132,26 @@ router.post("/register", upload.single("logo"), async (req, res) => {
     );
 
     const { password: _, ...safeUser } = user.toObject();
+
+    if (user.role === "seller") {
+      await Promise.all([
+        notifyAdmins({
+          type: "seller:request",
+          message: `${user.brandName || user.name || "A seller"} registered and is waiting for approval.`,
+          meta: {
+            sellerId: user._id,
+            sellerName: user.name,
+            brandName: user.brandName,
+            approvalStatus: user.sellerApprovalStatus || "pending",
+          },
+        }),
+        notifyUser(user._id, {
+          type: "seller:approval_pending",
+          message: "Your seller account is pending admin approval. You can sign in and view your dashboard, but seller actions stay locked until approval.",
+          meta: { approvalStatus: user.sellerApprovalStatus || "pending" },
+        }),
+      ]);
+    }
 
     res.status(201).json({
       message: "User registered successfully",
