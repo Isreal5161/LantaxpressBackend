@@ -2,6 +2,7 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import { notifyAdmins, notifyUser } from "../utils/notifications.js";
 import { calculateProductCharge, getPlatformFeeSettings } from "../utils/platformFees.js";
+import { getProductSellingPrice } from "../utils/productPricing.js";
 
 const ORDER_STAGES = [
   "Pending",
@@ -113,7 +114,7 @@ export const createOrders = async (req, res) => {
       }
 
       const quantity = Math.max(1, Number(cartItem.quantity) || 1);
-      const unitPrice = Number(product.price) || 0;
+      const unitPrice = getProductSellingPrice(product);
       const grossAmount = unitPrice * quantity;
       const productCharge = calculateProductCharge(grossAmount, productChargePercent);
       const order = await Order.create({

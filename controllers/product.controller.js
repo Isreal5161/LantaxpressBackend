@@ -1,15 +1,23 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { notifyAdmins } from "../utils/notifications.js";
+import { normalizeProductPricing } from "../utils/productPricing.js";
 import { getSellerApprovalMessage, getSellerApprovalStatus } from "../utils/sellerApproval.js";
 
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
-    const { name, description, price, category, stock, brand } = req.body;
+    const { name, description, price, discountPrice, category, stock, brand } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ message: "Name and price are required" });
+    }
+
+    let pricing;
+    try {
+      pricing = normalizeProductPricing({ price, discountPrice });
+    } catch (pricingError) {
+      return res.status(400).json({ message: pricingError.message });
     }
 
     const images = req.files ? req.files.map(file => file.path) : [];
@@ -17,7 +25,8 @@ export const addProduct = async (req, res) => {
     const product = await Product.create({
       name,
       description,
-      price,
+      price: pricing.price,
+      discountPrice: pricing.discountPrice,
       category,
       brand,
       stock,
@@ -69,11 +78,23 @@ export const updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { name, description, price, category, stock, brand } = req.body;
+    const { name, description, price, discountPrice, category, stock, brand } = req.body;
+
+    let pricing;
+
+    try {
+      pricing = normalizeProductPricing({
+        price: price !== undefined ? price : product.price,
+        discountPrice: discountPrice !== undefined ? discountPrice : product.discountPrice,
+      });
+    } catch (pricingError) {
+      return res.status(400).json({ message: pricingError.message });
+    }
 
     if (name) product.name = name;
     if (description) product.description = description;
-    if (price !== undefined) product.price = price;
+    product.price = pricing.price;
+    product.discountPrice = pricing.discountPrice;
     if (category) product.category = category;
     if (brand) product.brand = brand;
     if (stock !== undefined) product.stock = stock;

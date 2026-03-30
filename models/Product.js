@@ -5,6 +5,7 @@ const productSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String },
     price: { type: Number, required: true },
+    discountPrice: { type: Number, default: null },
     category: { type: String },
     brand: { type: String },
     images: [{ type: String }], // Cloudinary URLs
