@@ -7,7 +7,7 @@ import { getSellerApprovalMessage, getSellerApprovalStatus } from "../utils/sell
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
-    const { name, description, price, discountPrice, category, stock, brand } = req.body;
+    const { name, description, price, discountPrice, discountPercent, category, stock, brand } = req.body;
 
     if (!name || !price) {
       return res.status(400).json({ message: "Name and price are required" });
@@ -15,7 +15,7 @@ export const addProduct = async (req, res) => {
 
     let pricing;
     try {
-      pricing = normalizeProductPricing({ price, discountPrice });
+      pricing = normalizeProductPricing({ price, discountPrice, discountPercent });
     } catch (pricingError) {
       return res.status(400).json({ message: pricingError.message });
     }
@@ -27,6 +27,7 @@ export const addProduct = async (req, res) => {
       description,
       price: pricing.price,
       discountPrice: pricing.discountPrice,
+      discountPercent: pricing.discountPercent,
       category,
       brand,
       stock,
@@ -78,7 +79,7 @@ export const updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { name, description, price, discountPrice, category, stock, brand } = req.body;
+    const { name, description, price, discountPrice, discountPercent, category, stock, brand } = req.body;
 
     let pricing;
 
@@ -86,6 +87,7 @@ export const updateProduct = async (req, res) => {
       pricing = normalizeProductPricing({
         price: price !== undefined ? price : product.price,
         discountPrice: discountPrice !== undefined ? discountPrice : product.discountPrice,
+        discountPercent: discountPercent !== undefined ? discountPercent : product.discountPercent,
       });
     } catch (pricingError) {
       return res.status(400).json({ message: pricingError.message });
@@ -95,6 +97,7 @@ export const updateProduct = async (req, res) => {
     if (description) product.description = description;
     product.price = pricing.price;
     product.discountPrice = pricing.discountPrice;
+    product.discountPercent = pricing.discountPercent;
     if (category) product.category = category;
     if (brand) product.brand = brand;
     if (stock !== undefined) product.stock = stock;
