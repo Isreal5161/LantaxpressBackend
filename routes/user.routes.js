@@ -1,5 +1,5 @@
 import express from "express";
-import { getApprovedProducts } from "../controllers/product.controller.js";
+import { getApprovedProductById, getApprovedProducts } from "../controllers/product.controller.js";
 import { verifyToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import {
@@ -12,6 +12,7 @@ import {
 const router = express.Router();
 
 router.get("/products", getApprovedProducts);
+router.get("/products/:id", getApprovedProductById);
 
 // Get current user's notifications
 router.get('/notifications', verifyToken, async (req, res) => {

@@ -5,6 +5,111 @@ import { normalizeProductPricing } from "../utils/productPricing.js";
 import { getSellerApprovalMessage, getSellerApprovalStatus } from "../utils/sellerApproval.js";
 import { assertCategoryExists } from "../utils/categories.js";
 
+const buildReviewSummary = (reviews = []) => {
+  const safeReviews = reviews.filter((review) => Number(review?.rating) >= 1 && Number(review?.rating) <= 5);
+  const reviewCount = safeReviews.length;
+  const totalRating = safeReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0);
+  const averageRating = reviewCount > 0 ? Math.round((totalRating / reviewCount) * 10) / 10 : 0;
+  const ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+  safeReviews.forEach((review) => {
+    const rating = Number(review.rating) || 0;
+    if (ratingBreakdown[rating] !== undefined) {
+      ratingBreakdown[rating] += 1;
+    }
+  });
+
+  return {
+    reviewCount,
+    averageRating,
+    ratingBreakdown,
+  };
+};
+
+const serializeReview = (order) => ({
+  orderId: order._id,
+  orderNumber: order.orderNumber,
+  rating: Number(order.review?.rating) || 0,
+  comment: order.review?.comment || "",
+  date: order.review?.date || order.updatedAt || order.createdAt,
+  reviewerName: order.buyer?.name || order.contact?.name || "Verified buyer",
+  verifiedBuyer: true,
+});
+
+const serializeProduct = (product, reviewData = {}) => ({
+  ...product.toObject(),
+  reviewCount: Number(reviewData.reviewCount) || 0,
+  averageRating: Number(reviewData.averageRating) || 0,
+  ratingBreakdown: reviewData.ratingBreakdown || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  reviews: Array.isArray(reviewData.reviews) ? reviewData.reviews : [],
+});
+
+const getReviewSummaryMap = async (productIds = []) => {
+  if (productIds.length === 0) {
+    return new Map();
+  }
+
+  const aggregates = await Order.aggregate([
+    {
+      $match: {
+        "items.productId": { $in: productIds },
+        review: { $ne: null },
+      },
+    },
+    { $unwind: "$items" },
+    {
+      $match: {
+        "items.productId": { $in: productIds },
+        review: { $ne: null },
+      },
+    },
+    {
+      $group: {
+        _id: "$items.productId",
+        reviewCount: { $sum: 1 },
+        averageRating: { $avg: "$review.rating" },
+        rating1: { $sum: { $cond: [{ $eq: ["$review.rating", 1] }, 1, 0] } },
+        rating2: { $sum: { $cond: [{ $eq: ["$review.rating", 2] }, 1, 0] } },
+        rating3: { $sum: { $cond: [{ $eq: ["$review.rating", 3] }, 1, 0] } },
+        rating4: { $sum: { $cond: [{ $eq: ["$review.rating", 4] }, 1, 0] } },
+        rating5: { $sum: { $cond: [{ $eq: ["$review.rating", 5] }, 1, 0] } },
+      },
+    },
+  ]);
+
+  return new Map(
+    aggregates.map((entry) => [
+      entry._id.toString(),
+      {
+        reviewCount: entry.reviewCount || 0,
+        averageRating: Math.round((Number(entry.averageRating) || 0) * 10) / 10,
+        ratingBreakdown: {
+          1: entry.rating1 || 0,
+          2: entry.rating2 || 0,
+          3: entry.rating3 || 0,
+          4: entry.rating4 || 0,
+          5: entry.rating5 || 0,
+        },
+      },
+    ]),
+  );
+};
+
+const getDetailedReviewData = async (productId) => {
+  const reviewedOrders = await Order.find({
+    "items.productId": productId,
+    review: { $ne: null },
+  })
+    .populate("buyer", "name")
+    .sort({ "review.date": -1, updatedAt: -1, createdAt: -1 });
+
+  const reviews = reviewedOrders.map(serializeReview);
+  return {
+    ...buildReviewSummary(reviews),
+    reviews,
+  };
+};
+
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
@@ -169,8 +274,24 @@ export const deleteProduct = async (req, res) => {
 export const getApprovedProducts = async (req, res) => {
   try {
     const products = await Product.find({ status: "approved" }).populate("seller", "brandName");
+    const reviewSummaryMap = await getReviewSummaryMap(products.map((product) => product._id));
 
-    res.json(products);
+    res.json(products.map((product) => serializeProduct(product, reviewSummaryMap.get(product._id.toString()))));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getApprovedProductById = async (req, res) => {
+  try {
+    const product = await Product.findOne({ _id: req.params.id, status: "approved" }).populate("seller", "brandName");
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const reviewData = await getDetailedReviewData(product._id);
+    res.json(serializeProduct(product, reviewData));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

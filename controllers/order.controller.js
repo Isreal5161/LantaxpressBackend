@@ -294,8 +294,14 @@ export const confirmOrderReceived = async (req, res) => {
 export const addOrderReview = async (req, res) => {
   try {
     const { rating, comment } = req.body;
-    if (!rating || !comment?.trim()) {
+    const normalizedRating = Number(rating);
+
+    if (!normalizedRating || !comment?.trim()) {
       return res.status(400).json({ message: "Rating and comment are required" });
+    }
+
+    if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
+      return res.status(400).json({ message: "Rating must be between 1 and 5 stars" });
     }
 
     const order = await Order.findById(req.params.id).populate("buyer", "name email");
@@ -307,8 +313,16 @@ export const addOrderReview = async (req, res) => {
       return res.status(403).json({ message: "Not authorized to review this order" });
     }
 
+    if (!order.received || order.status !== "Completed") {
+      return res.status(400).json({ message: "You can only review orders after confirming delivery" });
+    }
+
+    if (order.review) {
+      return res.status(400).json({ message: "This order has already been reviewed" });
+    }
+
     order.review = {
-      rating: Number(rating),
+      rating: normalizedRating,
       comment: comment.trim(),
       date: new Date(),
     };
@@ -321,12 +335,12 @@ export const addOrderReview = async (req, res) => {
       notifyUser(saved.seller?._id || saved.seller, {
         type: "order:review",
         message: `You received a new review for order ${saved.orderNumber}.`,
-        meta: { orderId: saved._id, orderNumber: saved.orderNumber, rating: Number(rating) },
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, rating: normalizedRating },
       }),
       notifyAdmins({
         type: "order:review",
         message: `A new review was submitted for order ${saved.orderNumber}.`,
-        meta: { orderId: saved._id, orderNumber: saved.orderNumber, rating: Number(rating) },
+        meta: { orderId: saved._id, orderNumber: saved.orderNumber, rating: normalizedRating },
       }),
     ]);
 
