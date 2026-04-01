@@ -9,6 +9,7 @@ const productSchema = new mongoose.Schema(
     discountPercent: { type: Number, default: null },
     category: { type: String },
     brand: { type: String },
+    keyFeatures: [{ type: String, trim: true }],
     images: [{ type: String }], // Cloudinary URLs
 
     seller: {

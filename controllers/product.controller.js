@@ -110,10 +110,21 @@ const getDetailedReviewData = async (productId) => {
   };
 };
 
+const parseKeyFeatures = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  return String(value || "")
+    .split(/\r?\n|[•●◦▪]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
-    const { name, description, price, discountPrice, discountPercent, category, stock, brand } = req.body;
+    const { name, description, price, discountPrice, discountPercent, category, stock, brand, keyFeatures } = req.body;
 
     if (!name || !price || !category) {
       return res.status(400).json({ message: "Name, price, and category are required" });
@@ -143,6 +154,7 @@ export const addProduct = async (req, res) => {
       discountPercent: pricing.discountPercent,
       category: validatedCategory,
       brand,
+      keyFeatures: parseKeyFeatures(keyFeatures),
       stock,
       images,
       seller: req.user._id,
@@ -192,7 +204,7 @@ export const updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { name, description, price, discountPrice, discountPercent, category, stock, brand } = req.body;
+    const { name, description, price, discountPrice, discountPercent, category, stock, brand, keyFeatures } = req.body;
 
     let pricing;
 
@@ -219,6 +231,7 @@ export const updateProduct = async (req, res) => {
       }
     }
     if (brand) product.brand = brand;
+    if (keyFeatures !== undefined) product.keyFeatures = parseKeyFeatures(keyFeatures);
     if (stock !== undefined) product.stock = stock;
 
     // handle uploaded images

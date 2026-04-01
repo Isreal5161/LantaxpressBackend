@@ -86,7 +86,13 @@ export const adminUpdateProduct = async (req, res) => {
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    const { name, description, price, category, stock, brand, status } = req.body;
+    const { name, description, price, category, stock, brand, status, keyFeatures } = req.body;
+    const parsedKeyFeatures = keyFeatures !== undefined
+      ? String(keyFeatures)
+          .split(/\r?\n|[•●◦▪]/)
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : undefined;
     if (name) product.name = name;
     if (description) product.description = description;
     if (price !== undefined) product.price = price;
@@ -98,6 +104,7 @@ export const adminUpdateProduct = async (req, res) => {
       }
     }
     if (brand) product.brand = brand;
+    if (parsedKeyFeatures !== undefined) product.keyFeatures = parsedKeyFeatures;
     if (stock !== undefined) product.stock = stock;
     if (status) product.status = status;
 
