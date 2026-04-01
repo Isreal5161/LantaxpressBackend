@@ -11,6 +11,7 @@ const productSchema = new mongoose.Schema(
     brand: { type: String },
     keyFeatures: [{ type: String, trim: true }],
     images: [{ type: String }], // Cloudinary URLs
+    video: { type: String, default: "" },
 
     seller: {
       type: mongoose.Schema.Types.ObjectId,

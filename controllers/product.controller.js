@@ -121,6 +121,21 @@ const parseKeyFeatures = (value) => {
     .filter(Boolean);
 };
 
+const getUploadedImages = (files) => {
+  const imageFiles = Array.isArray(files)
+    ? files
+    : Array.isArray(files?.images)
+      ? files.images
+      : [];
+
+  return imageFiles.map((file) => file.path).filter(Boolean);
+};
+
+const getUploadedVideo = (files) => {
+  const videoFiles = Array.isArray(files?.video) ? files.video : [];
+  return videoFiles[0]?.path || "";
+};
+
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
@@ -144,7 +159,12 @@ export const addProduct = async (req, res) => {
       return res.status(400).json({ message: categoryError.message });
     }
 
-    const images = req.files ? req.files.map(file => file.path) : [];
+    const images = getUploadedImages(req.files);
+    const video = getUploadedVideo(req.files);
+
+    if (images.length < 3 || images.length > 5) {
+      return res.status(400).json({ message: "Upload between 3 and 5 product images" });
+    }
 
     const product = await Product.create({
       name,
@@ -157,6 +177,7 @@ export const addProduct = async (req, res) => {
       keyFeatures: parseKeyFeatures(keyFeatures),
       stock,
       images,
+      video,
       seller: req.user._id,
       status: "pending", // 👈 important
     });
@@ -235,10 +256,23 @@ export const updateProduct = async (req, res) => {
     if (stock !== undefined) product.stock = stock;
 
     // handle uploaded images
-    if (req.files && req.files.length > 0) {
-      const images = req.files.map(f => f.path);
-      // append new images (keep existing ones)
-      product.images = images.concat(product.images || []);
+    const uploadedImages = getUploadedImages(req.files);
+    const uploadedVideo = getUploadedVideo(req.files);
+
+    if (uploadedImages.length > 0) {
+      const mergedImages = [...uploadedImages, ...(product.images || [])].slice(0, 5);
+
+      if (mergedImages.length < 3 || mergedImages.length > 5) {
+        return res.status(400).json({ message: "Products must keep between 3 and 5 images" });
+      }
+
+      product.images = mergedImages;
+    } else if ((product.images || []).length < 3 || (product.images || []).length > 5) {
+      return res.status(400).json({ message: "Products must keep between 3 and 5 images" });
+    }
+
+    if (uploadedVideo) {
+      product.video = uploadedVideo;
     }
 
     // if product was approved and seller edits, mark as pending for re-approval

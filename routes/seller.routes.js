@@ -19,12 +19,17 @@ import cloudinary from "../config/cloudinary.js";
 
 const router = express.Router();
 
-// Cloudinary storage for product images
+// Cloudinary storage for product media
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: {
-    folder: "products",
-    allowed_formats: ["jpg", "png", "jpeg"],
+  params: async (req, file) => {
+    const isVideo = file.mimetype?.startsWith("video/");
+
+    return {
+      folder: isVideo ? "products/videos" : "products/images",
+      resource_type: isVideo ? "video" : "image",
+      allowed_formats: isVideo ? ["mp4", "mov", "webm", "m4v"] : ["jpg", "png", "jpeg", "webp"],
+    };
   },
 });
 
@@ -36,7 +41,10 @@ router.post(
   verifyToken,
   allowRoles("seller"),
   requireApprovedSeller,
-  upload.array("images", 5),
+  upload.fields([
+    { name: "images", maxCount: 5 },
+    { name: "video", maxCount: 1 },
+  ]),
   addProduct
 );
 
@@ -99,7 +107,10 @@ router.put(
   verifyToken,
   allowRoles("seller"),
   requireApprovedSeller,
-  upload.array("images", 5),
+  upload.fields([
+    { name: "images", maxCount: 5 },
+    { name: "video", maxCount: 1 },
+  ]),
   updateProduct
 );
 
