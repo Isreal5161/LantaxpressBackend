@@ -16,6 +16,37 @@ const ORDER_STAGES = [
   "Cancelled",
 ];
 
+const deductStockForCompletedOrder = async (order) => {
+  if (!order || order.stockDeductedAt) {
+    return;
+  }
+
+  const firstItem = order.items?.[0];
+  const productId = firstItem?.productId?._id || firstItem?.productId;
+  const quantity = Math.max(1, Number(firstItem?.quantity) || 1);
+
+  if (!productId) {
+    throw new Error("Order item is missing a product reference");
+  }
+
+  const updatedProduct = await Product.findOneAndUpdate(
+    {
+      _id: productId,
+      stock: { $gte: quantity },
+    },
+    {
+      $inc: { stock: -quantity },
+    },
+    { new: true },
+  );
+
+  if (!updatedProduct) {
+    throw new Error("Insufficient stock to complete this order");
+  }
+
+  order.stockDeductedAt = new Date();
+};
+
 const buildOrderNumber = () => {
   const stamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).slice(2, 7).toUpperCase();
@@ -114,6 +145,13 @@ export const createOrders = async (req, res) => {
       }
 
       const quantity = Math.max(1, Number(cartItem.quantity) || 1);
+
+      if ((Number(product.stock) || 0) < quantity) {
+        return res.status(400).json({
+          message: `${product.name} only has ${Math.max(Number(product.stock) || 0, 0)} item(s) left in stock`,
+        });
+      }
+
       const unitPrice = getProductSellingPrice(product);
       const grossAmount = unitPrice * quantity;
       const productCharge = calculateProductCharge(grossAmount, productChargePercent);
@@ -261,6 +299,7 @@ export const confirmOrderReceived = async (req, res) => {
     }
 
     const receivedAt = new Date();
+    await deductStockForCompletedOrder(order);
     order.status = "Completed";
     order.received = true;
     order.receivedAt = receivedAt;
@@ -389,15 +428,16 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    if (status === "Completed") {
+      await deductStockForCompletedOrder(order);
+      order.received = true;
+      order.receivedAt = order.receivedAt || new Date();
+    }
+
     order.status = status;
 
     if (!order.stageTimestamps?.get?.(status) && !order.stageTimestamps?.[status]) {
       order.stageTimestamps.set(status, new Date());
-    }
-
-    if (status === "Completed") {
-      order.received = true;
-      order.receivedAt = order.receivedAt || new Date();
     }
 
     await order.save();

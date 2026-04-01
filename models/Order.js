@@ -67,6 +67,7 @@ const orderSchema = new mongoose.Schema(
     expectedDelivery: { type: Date },
     received: { type: Boolean, default: false },
     receivedAt: { type: Date },
+    stockDeductedAt: { type: Date, default: null },
     review: { type: reviewSchema, default: null },
   },
   { timestamps: true }
