@@ -41,8 +41,17 @@ export const ensureCategoryCatalog = async () => {
   });
 
   const desiredTitles = new Map();
+  const existingCategories = await Category.find({}, "normalizedTitle").lean();
+  const existingNormalizedTitles = new Set(
+    existingCategories.map((category) => category.normalizedTitle)
+  );
+  const seedDefaults = existingNormalizedTitles.size === 0;
 
-  [...defaultCategoryTitles, ...legacyProductCategories, ...legacySellerCategories].forEach((title) => {
+  [
+    ...(seedDefaults ? defaultCategoryTitles : []),
+    ...legacyProductCategories,
+    ...legacySellerCategories,
+  ].forEach((title) => {
     const normalizedTitle = normalizeCategoryTitle(title || "");
     if (!normalizedTitle) {
       return;
@@ -50,11 +59,6 @@ export const ensureCategoryCatalog = async () => {
 
     desiredTitles.set(normalizedTitle.toLowerCase(), normalizedTitle);
   });
-
-  const existingCategories = await Category.find({}, "normalizedTitle").lean();
-  const existingNormalizedTitles = new Set(
-    existingCategories.map((category) => category.normalizedTitle)
-  );
 
   const operations = Array.from(desiredTitles.entries())
     .filter(([normalizedTitle]) => !existingNormalizedTitles.has(normalizedTitle))
