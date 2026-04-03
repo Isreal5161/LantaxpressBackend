@@ -21,6 +21,12 @@ import {
   updatePromotionFlyer,
 } from "../controllers/promotion.controller.js";
 import {
+  createHeroSlide,
+  deleteHeroSlide,
+  getAdminHeroSlides,
+  updateHeroSlide,
+} from "../controllers/hero.controller.js";
+import {
   getAdminSellerPayments,
   updateAdminPlatformFees,
   updateWithdrawalStatus,
@@ -49,6 +55,7 @@ const promotionStorage = new CloudinaryStorage({
 });
 
 const promotionUpload = multer({ storage: promotionStorage });
+const heroUpload = multer({ storage: promotionStorage });
 
 // GET PENDING PRODUCTS
 router.get(
@@ -147,6 +154,36 @@ router.delete(
   verifyToken,
   allowRoles("admin"),
   deletePromotionFlyer
+);
+
+router.get(
+  "/hero-slides",
+  verifyToken,
+  allowRoles("admin"),
+  getAdminHeroSlides
+);
+
+router.post(
+  "/hero-slides",
+  verifyToken,
+  allowRoles("admin"),
+  heroUpload.single("media"),
+  createHeroSlide
+);
+
+router.put(
+  "/hero-slides/:id",
+  verifyToken,
+  allowRoles("admin"),
+  heroUpload.single("media"),
+  updateHeroSlide
+);
+
+router.delete(
+  "/hero-slides/:id",
+  verifyToken,
+  allowRoles("admin"),
+  deleteHeroSlide
 );
 
 // GET REGISTERED USERS
