@@ -7,11 +7,15 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     discountPrice: { type: Number, default: null },
     discountPercent: { type: Number, default: null },
+    discountEndsAt: { type: Date, default: null },
     category: { type: String },
     brand: { type: String },
     keyFeatures: [{ type: String, trim: true }],
     images: [{ type: String }], // Cloudinary URLs
     video: { type: String, default: "" },
+    isFlashSale: { type: Boolean, default: false },
+    flashSaleEndsAt: { type: Date, default: null },
+    isMostWanted: { type: Boolean, default: false },
 
     seller: {
       type: mongoose.Schema.Types.ObjectId,

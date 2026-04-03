@@ -86,13 +86,50 @@ export const adminUpdateProduct = async (req, res) => {
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    const { name, description, price, category, stock, brand, status, keyFeatures } = req.body;
+    const {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      brand,
+      status,
+      keyFeatures,
+      discountPrice,
+      discountPercent,
+      discountEndsAt,
+      isFlashSale,
+      flashSaleEndsAt,
+      isMostWanted,
+    } = req.body;
     const parsedKeyFeatures = keyFeatures !== undefined
       ? String(keyFeatures)
           .split(/\r?\n|[•●◦▪]/)
           .map((item) => item.trim())
           .filter(Boolean)
       : undefined;
+    const parseOptionalNumber = (value) => {
+      if (value === undefined || value === null || value === '') {
+        return null;
+      }
+
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const parseOptionalDate = (value) => {
+      if (value === undefined || value === null || value === '') {
+        return null;
+      }
+
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const parseBoolean = (value) => {
+      if (value === true || value === 'true') return true;
+      if (value === false || value === 'false') return false;
+      return undefined;
+    };
+
     if (name) product.name = name;
     if (description) product.description = description;
     if (price !== undefined) product.price = price;
@@ -107,6 +144,37 @@ export const adminUpdateProduct = async (req, res) => {
     if (parsedKeyFeatures !== undefined) product.keyFeatures = parsedKeyFeatures;
     if (stock !== undefined) product.stock = stock;
     if (status) product.status = status;
+
+    if (discountPrice !== undefined) {
+      const parsedDiscountPrice = parseOptionalNumber(discountPrice);
+      product.discountPrice = parsedDiscountPrice;
+    }
+
+    if (discountPercent !== undefined) {
+      const parsedDiscountPercent = parseOptionalNumber(discountPercent);
+      product.discountPercent = parsedDiscountPercent;
+    }
+
+    if (discountEndsAt !== undefined) {
+      product.discountEndsAt = parseOptionalDate(discountEndsAt);
+    }
+
+    const parsedFlashSale = parseBoolean(isFlashSale);
+    if (parsedFlashSale !== undefined) {
+      product.isFlashSale = parsedFlashSale;
+      if (!parsedFlashSale) {
+        product.flashSaleEndsAt = null;
+      }
+    }
+
+    if (flashSaleEndsAt !== undefined) {
+      product.flashSaleEndsAt = parseOptionalDate(flashSaleEndsAt);
+    }
+
+    const parsedMostWanted = parseBoolean(isMostWanted);
+    if (parsedMostWanted !== undefined) {
+      product.isMostWanted = parsedMostWanted;
+    }
 
     if (req.files && req.files.length > 0) {
       const imgs = req.files.map(f => f.path);
