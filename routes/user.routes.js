@@ -1,5 +1,6 @@
 import express from "express";
 import { getApprovedProductById, getApprovedProducts } from "../controllers/product.controller.js";
+import { getPublicPromotionFlyers } from "../controllers/promotion.controller.js";
 import { verifyToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import {
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.get("/products", getApprovedProducts);
 router.get("/products/:id", getApprovedProductById);
+router.get("/promotions", getPublicPromotionFlyers);
 
 // Get current user's notifications
 router.get('/notifications', verifyToken, async (req, res) => {

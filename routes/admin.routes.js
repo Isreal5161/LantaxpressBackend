@@ -1,7 +1,10 @@
 import express from "express";
+import multer from "multer";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { verifyToken } from "../middleware/auth.js";
 import { allowRoles } from "../middleware/roles.js";
 import Admin from "../models/Admin.js";
+import cloudinary from "../config/cloudinary.js";
 import {
   getPendingProducts,
   approveProduct,
@@ -11,6 +14,12 @@ import {
   rejectSellerRequest,
 } from "../controllers/admin.controller.js";
 import { getAllProducts } from "../controllers/admin.controller.js";
+import {
+  createPromotionFlyer,
+  deletePromotionFlyer,
+  getAdminPromotionFlyers,
+  updatePromotionFlyer,
+} from "../controllers/promotion.controller.js";
 import {
   getAdminSellerPayments,
   updateAdminPlatformFees,
@@ -25,6 +34,17 @@ import {
 
 const router = express.Router();
 import { adminUpdateProduct, adminDeleteProduct } from "../controllers/admin.controller.js";
+
+const promotionStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async () => ({
+    folder: "lantaxpress/promotions",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    resource_type: "image",
+  }),
+});
+
+const promotionUpload = multer({ storage: promotionStorage });
 
 // GET PENDING PRODUCTS
 router.get(
@@ -93,6 +113,36 @@ router.delete(
   verifyToken,
   allowRoles("admin"),
   adminDeleteProduct
+);
+
+router.get(
+  "/promotions",
+  verifyToken,
+  allowRoles("admin"),
+  getAdminPromotionFlyers
+);
+
+router.post(
+  "/promotions",
+  verifyToken,
+  allowRoles("admin"),
+  promotionUpload.single("image"),
+  createPromotionFlyer
+);
+
+router.put(
+  "/promotions/:id",
+  verifyToken,
+  allowRoles("admin"),
+  promotionUpload.single("image"),
+  updatePromotionFlyer
+);
+
+router.delete(
+  "/promotions/:id",
+  verifyToken,
+  allowRoles("admin"),
+  deletePromotionFlyer
 );
 
 // GET REGISTERED USERS
