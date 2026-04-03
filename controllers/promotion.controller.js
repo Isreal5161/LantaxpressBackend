@@ -22,6 +22,8 @@ const resolveMediaType = (file) => {
   return file.mimetype.startsWith("video/") ? "video" : "image";
 };
 
+const resolveBodyMediaType = (value) => (value === "video" ? "video" : "image");
+
 const parseBoolean = (value, fallback = undefined) => {
   if (value === true || value === "true") return true;
   if (value === false || value === "false") return false;
@@ -62,7 +64,7 @@ export const getAdminPromotionFlyers = async (req, res) => {
 
 export const createPromotionFlyer = async (req, res) => {
   try {
-    if (!req.file?.path) {
+    if (!req.file?.path && !req.body.image) {
       return res.status(400).json({ message: "Flyer media is required" });
     }
 
@@ -70,9 +72,9 @@ export const createPromotionFlyer = async (req, res) => {
       section: req.body.section,
       title: req.body.title || "",
       link: req.body.link || "/shop",
-      image: req.file.path,
-      imagePublicId: req.file.filename || "",
-      mediaType: resolveMediaType(req.file),
+      image: req.file?.path || req.body.image,
+      imagePublicId: req.file?.filename || "",
+      mediaType: req.file ? resolveMediaType(req.file) : resolveBodyMediaType(req.body.mediaType),
       sortOrder: parseSortOrder(req.body.sortOrder),
       isActive: parseBoolean(req.body.isActive, true),
     });
@@ -112,6 +114,20 @@ export const updatePromotionFlyer = async (req, res) => {
       flyer.image = req.file.path;
       flyer.imagePublicId = req.file.filename || "";
       flyer.mediaType = resolveMediaType(req.file);
+    } else if (req.body.image !== undefined) {
+      if (flyer.imagePublicId && req.body.image !== flyer.image) {
+        try {
+          await cloudinary.uploader.destroy(flyer.imagePublicId, { resource_type: flyer.mediaType === "video" ? "video" : "image" });
+        } catch (uploadError) {
+          console.warn("Failed to remove old promotion flyer image", uploadError);
+        }
+      }
+
+      flyer.image = req.body.image || flyer.image;
+      flyer.imagePublicId = "";
+      if (req.body.mediaType !== undefined) {
+        flyer.mediaType = resolveBodyMediaType(req.body.mediaType);
+      }
     }
 
     await flyer.save();

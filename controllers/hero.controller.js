@@ -57,6 +57,8 @@ const resolveMediaType = (file) => {
   return file.mimetype.startsWith("video/") ? "video" : "image";
 };
 
+const resolveBodyMediaType = (value) => (value === "video" ? "video" : "image");
+
 export const getPublicHeroSlides = async (req, res) => {
   try {
     const slides = await HeroSlide.find({ isActive: true }).sort({ sortOrder: 1, createdAt: -1 });
@@ -77,7 +79,7 @@ export const getAdminHeroSlides = async (req, res) => {
 
 export const createHeroSlide = async (req, res) => {
   try {
-    if (!req.file?.path) {
+    if (!req.file?.path && !req.body.mediaUrl) {
       return res.status(400).json({ message: "Hero media is required" });
     }
 
@@ -92,9 +94,9 @@ export const createHeroSlide = async (req, res) => {
       secondaryLink: req.body.secondaryLink || "/shop",
       badge: req.body.badge || "Featured",
       metrics: parseMetrics(req.body.metrics),
-      mediaUrl: req.file.path,
-      mediaPublicId: req.file.filename || "",
-      mediaType: resolveMediaType(req.file),
+      mediaUrl: req.file?.path || req.body.mediaUrl,
+      mediaPublicId: req.file?.filename || "",
+      mediaType: req.file ? resolveMediaType(req.file) : resolveBodyMediaType(req.body.mediaType),
       imageFit: req.body.imageFit === "object-cover" ? "object-cover" : "object-contain",
       accent: req.body.accent || "from-emerald-600 via-green-600 to-lime-500",
       surface: req.body.surface || "from-emerald-50 via-white to-lime-50",
@@ -147,6 +149,20 @@ export const updateHeroSlide = async (req, res) => {
       slide.mediaUrl = req.file.path;
       slide.mediaPublicId = req.file.filename || "";
       slide.mediaType = resolveMediaType(req.file);
+    } else if (req.body.mediaUrl !== undefined) {
+      if (slide.mediaPublicId && req.body.mediaUrl !== slide.mediaUrl) {
+        try {
+          await cloudinary.uploader.destroy(slide.mediaPublicId, { resource_type: slide.mediaType === "video" ? "video" : "image" });
+        } catch (uploadError) {
+          console.warn("Failed to remove old hero slide media", uploadError);
+        }
+      }
+
+      slide.mediaUrl = req.body.mediaUrl || slide.mediaUrl;
+      slide.mediaPublicId = "";
+      if (req.body.mediaType !== undefined) {
+        slide.mediaType = resolveBodyMediaType(req.body.mediaType);
+      }
     }
 
     await slide.save();
