@@ -12,6 +12,11 @@ const promotionFlyerSchema = new mongoose.Schema(
     link: { type: String, trim: true, default: "/shop" },
     image: { type: String, required: true },
     imagePublicId: { type: String, default: "" },
+    mediaType: {
+      type: String,
+      enum: ["image", "video"],
+      default: "image",
+    },
     sortOrder: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
   },

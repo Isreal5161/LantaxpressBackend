@@ -7,11 +7,20 @@ const serializePromotionFlyer = (flyer) => ({
   title: flyer.title || "",
   link: flyer.link || "/shop",
   image: flyer.image,
+  mediaType: flyer.mediaType || "image",
   sortOrder: flyer.sortOrder || 0,
   isActive: flyer.isActive !== false,
   createdAt: flyer.createdAt,
   updatedAt: flyer.updatedAt,
 });
+
+const resolveMediaType = (file) => {
+  if (!file?.mimetype) {
+    return "image";
+  }
+
+  return file.mimetype.startsWith("video/") ? "video" : "image";
+};
 
 const parseBoolean = (value, fallback = undefined) => {
   if (value === true || value === "true") return true;
@@ -54,7 +63,7 @@ export const getAdminPromotionFlyers = async (req, res) => {
 export const createPromotionFlyer = async (req, res) => {
   try {
     if (!req.file?.path) {
-      return res.status(400).json({ message: "Flyer image is required" });
+      return res.status(400).json({ message: "Flyer media is required" });
     }
 
     const flyer = await PromotionFlyer.create({
@@ -63,6 +72,7 @@ export const createPromotionFlyer = async (req, res) => {
       link: req.body.link || "/shop",
       image: req.file.path,
       imagePublicId: req.file.filename || "",
+      mediaType: resolveMediaType(req.file),
       sortOrder: parseSortOrder(req.body.sortOrder),
       isActive: parseBoolean(req.body.isActive, true),
     });
@@ -93,7 +103,7 @@ export const updatePromotionFlyer = async (req, res) => {
     if (req.file?.path) {
       if (flyer.imagePublicId) {
         try {
-          await cloudinary.uploader.destroy(flyer.imagePublicId, { resource_type: "image" });
+          await cloudinary.uploader.destroy(flyer.imagePublicId, { resource_type: flyer.mediaType === "video" ? "video" : "image" });
         } catch (uploadError) {
           console.warn("Failed to remove old promotion flyer image", uploadError);
         }
@@ -101,6 +111,7 @@ export const updatePromotionFlyer = async (req, res) => {
 
       flyer.image = req.file.path;
       flyer.imagePublicId = req.file.filename || "";
+      flyer.mediaType = resolveMediaType(req.file);
     }
 
     await flyer.save();
@@ -120,7 +131,7 @@ export const deletePromotionFlyer = async (req, res) => {
 
     if (flyer.imagePublicId) {
       try {
-        await cloudinary.uploader.destroy(flyer.imagePublicId, { resource_type: "image" });
+        await cloudinary.uploader.destroy(flyer.imagePublicId, { resource_type: flyer.mediaType === "video" ? "video" : "image" });
       } catch (uploadError) {
         console.warn("Failed to remove promotion flyer image", uploadError);
       }

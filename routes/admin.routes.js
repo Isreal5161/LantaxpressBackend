@@ -37,11 +37,15 @@ import { adminUpdateProduct, adminDeleteProduct } from "../controllers/admin.con
 
 const promotionStorage = new CloudinaryStorage({
   cloudinary,
-  params: async () => ({
-    folder: "lantaxpress/promotions",
-    allowed_formats: ["jpg", "jpeg", "png", "webp"],
-    resource_type: "image",
-  }),
+  params: async (req, file) => {
+    const isVideo = file?.mimetype?.startsWith("video/");
+
+    return {
+      folder: "lantaxpress/promotions",
+      allowed_formats: isVideo ? ["mp4", "mov", "webm", "m4v"] : ["jpg", "jpeg", "png", "webp"],
+      resource_type: isVideo ? "video" : "image",
+    };
+  },
 });
 
 const promotionUpload = multer({ storage: promotionStorage });
@@ -126,7 +130,7 @@ router.post(
   "/promotions",
   verifyToken,
   allowRoles("admin"),
-  promotionUpload.single("image"),
+  promotionUpload.single("media"),
   createPromotionFlyer
 );
 
@@ -134,7 +138,7 @@ router.put(
   "/promotions/:id",
   verifyToken,
   allowRoles("admin"),
-  promotionUpload.single("image"),
+  promotionUpload.single("media"),
   updatePromotionFlyer
 );
 
