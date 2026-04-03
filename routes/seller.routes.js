@@ -19,21 +19,28 @@ import cloudinary from "../config/cloudinary.js";
 
 const router = express.Router();
 
-// Cloudinary storage for product media
+const PRODUCT_IMAGE_FORMATS = ["jpg", "png", "jpeg", "webp"];
+const PRODUCT_VIDEO_FORMATS = ["mp4", "mov", "webm", "m4v"];
+
+// Cloudinary storage for product images
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
     const isVideo = file.mimetype?.startsWith("video/");
 
     return {
-      folder: isVideo ? "products/videos" : "products/images",
+      folder: "products",
       resource_type: isVideo ? "video" : "image",
-      allowed_formats: isVideo ? ["mp4", "mov", "webm", "m4v"] : ["jpg", "png", "jpeg", "webp"],
+      allowed_formats: isVideo ? PRODUCT_VIDEO_FORMATS : PRODUCT_IMAGE_FORMATS,
     };
   },
 });
 
 const upload = multer({ storage });
+const uploadProductMedia = upload.fields([
+  { name: "images", maxCount: 5 },
+  { name: "video", maxCount: 1 },
+]);
 
 // ================= ADD PRODUCT =================
 router.post(
@@ -41,10 +48,7 @@ router.post(
   verifyToken,
   allowRoles("seller"),
   requireApprovedSeller,
-  upload.fields([
-    { name: "images", maxCount: 5 },
-    { name: "video", maxCount: 1 },
-  ]),
+  uploadProductMedia,
   addProduct
 );
 
@@ -107,10 +111,7 @@ router.put(
   verifyToken,
   allowRoles("seller"),
   requireApprovedSeller,
-  upload.fields([
-    { name: "images", maxCount: 5 },
-    { name: "video", maxCount: 1 },
-  ]),
+  uploadProductMedia,
   updateProduct
 );
 

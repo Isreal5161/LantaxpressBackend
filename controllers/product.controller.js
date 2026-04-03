@@ -121,19 +121,24 @@ const parseKeyFeatures = (value) => {
     .filter(Boolean);
 };
 
-const getUploadedImages = (files) => {
-  const imageFiles = Array.isArray(files)
-    ? files
-    : Array.isArray(files?.images)
-      ? files.images
-      : [];
+const extractUploadedImages = (files) => {
+  if (!files) {
+    return [];
+  }
 
-  return imageFiles.map((file) => file.path).filter(Boolean);
+  if (Array.isArray(files)) {
+    return files.map((file) => file.path).filter(Boolean);
+  }
+
+  return (files.images || []).map((file) => file.path).filter(Boolean);
 };
 
-const getUploadedVideo = (files) => {
-  const videoFiles = Array.isArray(files?.video) ? files.video : [];
-  return videoFiles[0]?.path || "";
+const extractUploadedVideo = (files) => {
+  if (!files || Array.isArray(files)) {
+    return "";
+  }
+
+  return files.video?.[0]?.path || "";
 };
 
 // ================= ADD PRODUCT =================
@@ -159,12 +164,8 @@ export const addProduct = async (req, res) => {
       return res.status(400).json({ message: categoryError.message });
     }
 
-    const images = getUploadedImages(req.files);
-    const video = getUploadedVideo(req.files);
-
-    if (images.length < 3 || images.length > 5) {
-      return res.status(400).json({ message: "Upload between 3 and 5 product images" });
-    }
+    const images = extractUploadedImages(req.files);
+    const video = extractUploadedVideo(req.files);
 
     const product = await Product.create({
       name,
@@ -256,23 +257,15 @@ export const updateProduct = async (req, res) => {
     if (stock !== undefined) product.stock = stock;
 
     // handle uploaded images
-    const uploadedImages = getUploadedImages(req.files);
-    const uploadedVideo = getUploadedVideo(req.files);
-
-    if (uploadedImages.length > 0) {
-      const mergedImages = [...uploadedImages, ...(product.images || [])].slice(0, 5);
-
-      if (mergedImages.length < 3 || mergedImages.length > 5) {
-        return res.status(400).json({ message: "Products must keep between 3 and 5 images" });
-      }
-
-      product.images = mergedImages;
-    } else if ((product.images || []).length < 3 || (product.images || []).length > 5) {
-      return res.status(400).json({ message: "Products must keep between 3 and 5 images" });
+    const newImages = extractUploadedImages(req.files);
+    if (newImages.length > 0) {
+      // append new images (keep existing ones)
+      product.images = newImages.concat(product.images || []);
     }
 
-    if (uploadedVideo) {
-      product.video = uploadedVideo;
+    const newVideo = extractUploadedVideo(req.files);
+    if (newVideo) {
+      product.video = newVideo;
     }
 
     // if product was approved and seller edits, mark as pending for re-approval

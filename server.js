@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import jwt from "jsonwebtoken";
 import cors from "cors";
+import multer from "multer";
 
 // Routes
 import authRoutes from "./routes/auth.routes.js";
@@ -64,10 +65,24 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   console.error(err.stack);
-  res.status(500).json({
+
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  const statusCode = Number(err?.http_code) || Number(err?.statusCode) || 500;
+
+  res.status(statusCode).json({
     success: false,
-    message: "Server error",
+    message: err?.message || "Server error",
   });
 });
 
