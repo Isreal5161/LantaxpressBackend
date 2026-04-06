@@ -18,12 +18,21 @@ const clampDays = (value, fallback, max = 30) => {
   return Math.min(Math.max(Math.round(numeric), 0), max);
 };
 
+const serializeOptionalDays = (value, { min = 0, max = 30 } = {}) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  return Math.min(Math.max(Math.round(numeric), min), max);
+};
+
 export const serializePlatformFeeSettings = (settings) => ({
   productChargePercent: clampPercent(settings?.productChargePercent),
   withdrawalChargePercent: clampPercent(settings?.withdrawalChargePercent),
-  deliveryMinDays: Math.max(clampDays(settings?.deliveryMinDays, 2), 1),
-  deliveryMaxDays: Math.max(clampDays(settings?.deliveryMaxDays, 5), 1),
-  returnWindowDays: clampDays(settings?.returnWindowDays, 7, 60),
+  deliveryMinDays: serializeOptionalDays(settings?.deliveryMinDays, { min: 1, max: 30 }),
+  deliveryMaxDays: serializeOptionalDays(settings?.deliveryMaxDays, { min: 1, max: 30 }),
+  returnWindowDays: serializeOptionalDays(settings?.returnWindowDays, { min: 0, max: 60 }),
   shippingPolicyTitle: String(settings?.shippingPolicyTitle || "Shipping Policy"),
   shippingPolicyContent: String(settings?.shippingPolicyContent || ""),
   returnPolicyTitle: String(settings?.returnPolicyTitle || "Return Policy"),
@@ -34,8 +43,12 @@ export const serializePlatformFeeSettings = (settings) => ({
 
 export const serializePublicStorefrontSettings = (settings) => {
   const serialized = serializePlatformFeeSettings(settings);
-  const deliveryMinDays = Math.max(Number(serialized.deliveryMinDays) || 2, 1);
-  const deliveryMaxDays = Math.max(Number(serialized.deliveryMaxDays) || deliveryMinDays, deliveryMinDays);
+  const hasDeliveryMinDays = Number.isFinite(Number(serialized.deliveryMinDays));
+  const hasDeliveryMaxDays = Number.isFinite(Number(serialized.deliveryMaxDays));
+  const deliveryMinDays = hasDeliveryMinDays ? Math.max(Number(serialized.deliveryMinDays), 1) : null;
+  const deliveryMaxDays = hasDeliveryMaxDays
+    ? Math.max(Number(serialized.deliveryMaxDays), deliveryMinDays || 1)
+    : null;
 
   return {
     deliveryMinDays,
@@ -50,9 +63,9 @@ export const serializePublicStorefrontSettings = (settings) => {
   };
 };
 
-export const getPlatformFeeSettings = async () => {
+export const getPlatformFeeSettings = async ({ createIfMissing = false } = {}) => {
   let settings = await PlatformFeeSettings.findOne().sort({ createdAt: 1 });
-  if (!settings) {
+  if (!settings && createIfMissing) {
     settings = await PlatformFeeSettings.create({});
   }
   return settings;
@@ -71,16 +84,18 @@ export const updatePlatformFeeSettings = async ({
   pickupStationPolicyContent,
   homeDeliveryPolicyContent,
 }) => {
-  const settings = await getPlatformFeeSettings();
+  const settings = await getPlatformFeeSettings({ createIfMissing: true });
   settings.productChargePercent = clampPercent(productChargePercent);
   settings.withdrawalChargePercent = clampPercent(withdrawalChargePercent);
 
-  const normalizedMinDays = Math.max(clampDays(deliveryMinDays, 2), 1);
-  const normalizedMaxDays = Math.max(clampDays(deliveryMaxDays, 5), normalizedMinDays);
+  const normalizedMinDays = serializeOptionalDays(deliveryMinDays, { min: 1, max: 30 });
+  const normalizedMaxDays = serializeOptionalDays(deliveryMaxDays, { min: 1, max: 30 });
 
   settings.deliveryMinDays = normalizedMinDays;
-  settings.deliveryMaxDays = normalizedMaxDays;
-  settings.returnWindowDays = clampDays(returnWindowDays, 7, 60);
+  settings.deliveryMaxDays = normalizedMaxDays !== null
+    ? Math.max(normalizedMaxDays, normalizedMinDays || 1)
+    : null;
+  settings.returnWindowDays = serializeOptionalDays(returnWindowDays, { min: 0, max: 60 });
   if (shippingPolicyTitle !== undefined) settings.shippingPolicyTitle = String(shippingPolicyTitle || "Shipping Policy").trim();
   if (shippingPolicyContent !== undefined) settings.shippingPolicyContent = String(shippingPolicyContent || "").trim();
   if (returnPolicyTitle !== undefined) settings.returnPolicyTitle = String(returnPolicyTitle || "Return Policy").trim();
