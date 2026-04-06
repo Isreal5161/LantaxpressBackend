@@ -32,4 +32,6 @@ const heroSlideSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+heroSlideSchema.index({ isActive: 1, sortOrder: 1, createdAt: -1 });
+
 export default mongoose.model("HeroSlide", heroSlideSchema);

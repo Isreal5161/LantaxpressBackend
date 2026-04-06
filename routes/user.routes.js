@@ -2,6 +2,7 @@ import express from "express";
 import { getApprovedProductById, getApprovedProducts } from "../controllers/product.controller.js";
 import { getPublicHeroSlides } from "../controllers/hero.controller.js";
 import { getPublicPromotionFlyers } from "../controllers/promotion.controller.js";
+import { getPublicStorefrontSettings } from "../controllers/finance.controller.js";
 import { verifyToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import {
@@ -17,6 +18,7 @@ router.get("/products", getApprovedProducts);
 router.get("/products/:id", getApprovedProductById);
 router.get("/promotions", getPublicPromotionFlyers);
 router.get("/hero-slides", getPublicHeroSlides);
+router.get("/storefront-settings", getPublicStorefrontSettings);
 
 // Get current user's notifications
 router.get('/notifications', verifyToken, async (req, res) => {

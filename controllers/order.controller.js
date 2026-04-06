@@ -86,6 +86,8 @@ const serializeOrder = (order) => {
     unitPrice: firstItem.price || 0,
     price: firstItem.price || 0,
     amount: order.amount || 0,
+    shippingAmount: order.shippingAmount || 0,
+    totalAmount: order.totalAmount || order.amount || 0,
     currency: order.currency || "NGN",
     paymentMethod: order.paymentMethod || "card",
     status: order.status,
@@ -132,6 +134,7 @@ export const createOrders = async (req, res) => {
     const productMap = new Map(products.map((product) => [product._id.toString(), product]));
     const feeSettings = await getPlatformFeeSettings();
     const productChargePercent = Number(feeSettings?.productChargePercent) || 0;
+    const shippingFee = Math.max(Number(feeSettings?.shippingFee) || 0, 0);
 
     const now = new Date();
     const createdOrders = [];
@@ -155,6 +158,7 @@ export const createOrders = async (req, res) => {
       const unitPrice = getProductSellingPrice(product);
       const grossAmount = unitPrice * quantity;
       const productCharge = calculateProductCharge(grossAmount, productChargePercent);
+      const totalAmount = grossAmount + shippingFee;
       const order = await Order.create({
         orderNumber: buildOrderNumber(),
         buyer: req.user._id,
@@ -186,6 +190,8 @@ export const createOrders = async (req, res) => {
           },
         ],
         amount: grossAmount,
+        shippingAmount: shippingFee,
+        totalAmount,
         productChargePercent: productCharge.chargePercent,
         productChargeAmount: productCharge.chargeAmount,
         sellerNetAmount: productCharge.sellerNetAmount,

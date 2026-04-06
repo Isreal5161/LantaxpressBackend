@@ -41,6 +41,8 @@ const orderSchema = new mongoose.Schema(
       },
     ],
     amount: { type: Number, required: true },
+    shippingAmount: { type: Number, default: 0 },
+    totalAmount: { type: Number, default: 0 },
     productChargePercent: { type: Number, default: 0 },
     productChargeAmount: { type: Number, default: 0 },
     sellerNetAmount: { type: Number, default: 0 },

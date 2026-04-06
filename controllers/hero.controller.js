@@ -1,6 +1,52 @@
 import cloudinary from "../config/cloudinary.js";
 import HeroSlide from "../models/HeroSlide.js";
 
+const PUBLIC_HERO_FIELDS = [
+  "eyebrow",
+  "title",
+  "highlight",
+  "desc",
+  "primaryText",
+  "primaryLink",
+  "secondaryText",
+  "secondaryLink",
+  "badge",
+  "metrics",
+  "mediaUrl",
+  "mediaPublicId",
+  "mediaType",
+  "imageFit",
+  "accent",
+  "surface",
+  "sortOrder",
+  "isActive",
+  "createdAt",
+].join(" ");
+
+const getOptimizedHeroMediaUrl = (slide) => {
+  if (!slide?.mediaPublicId) {
+    return slide?.mediaUrl || "";
+  }
+
+  if (slide.mediaType === "video") {
+    return cloudinary.url(slide.mediaPublicId, {
+      resource_type: "video",
+      secure: true,
+      quality: "auto",
+      fetch_format: "auto",
+    });
+  }
+
+  return cloudinary.url(slide.mediaPublicId, {
+    resource_type: "image",
+    secure: true,
+    quality: "auto",
+    fetch_format: "auto",
+    width: 1600,
+    crop: "limit",
+  });
+};
+
 const serializeHeroSlide = (slide) => ({
   _id: slide._id,
   eyebrow: slide.eyebrow || "",
@@ -13,7 +59,7 @@ const serializeHeroSlide = (slide) => ({
   secondaryLink: slide.secondaryLink || "/shop",
   badge: slide.badge || "Featured",
   metrics: Array.isArray(slide.metrics) ? slide.metrics.filter(Boolean) : [],
-  mediaUrl: slide.mediaUrl,
+  mediaUrl: getOptimizedHeroMediaUrl(slide),
   mediaType: slide.mediaType || "image",
   imageFit: slide.imageFit || "object-contain",
   accent: slide.accent,
@@ -61,7 +107,12 @@ const resolveBodyMediaType = (value) => (value === "video" ? "video" : "image");
 
 export const getPublicHeroSlides = async (req, res) => {
   try {
-    const slides = await HeroSlide.find({ isActive: true }).sort({ sortOrder: 1, createdAt: -1 });
+    const slides = await HeroSlide.find({ isActive: true })
+      .select(PUBLIC_HERO_FIELDS)
+      .sort({ sortOrder: 1, createdAt: -1 })
+      .lean();
+
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     res.json(slides.map(serializeHeroSlide));
   } catch (error) {
     res.status(500).json({ message: error.message || "Failed to load hero slides" });

@@ -6,6 +6,7 @@ import {
   calculateWithdrawalCharge,
   getPlatformFeeSettings,
   resolveOrderNetAmount,
+  serializePublicStorefrontSettings,
   serializePlatformFeeSettings,
   updatePlatformFeeSettings,
 } from "../utils/platformFees.js";
@@ -124,6 +125,16 @@ export const getSellerPlatformFees = async (req, res) => {
     res.json(serializePlatformFeeSettings(settings));
   } catch (error) {
     res.status(500).json({ message: error.message || "Failed to load platform fees" });
+  }
+};
+
+export const getPublicStorefrontSettings = async (req, res) => {
+  try {
+    const settings = await getPlatformFeeSettings();
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    res.json(serializePublicStorefrontSettings(settings));
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Failed to load storefront settings" });
   }
 };
 
