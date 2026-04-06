@@ -16,6 +16,8 @@ const productSchema = new mongoose.Schema(
     isFlashSale: { type: Boolean, default: false },
     flashSaleEndsAt: { type: Date, default: null },
     isMostWanted: { type: Boolean, default: false },
+    pickupStationFee: { type: Number, default: 0, min: 0 },
+    homeDeliveryFee: { type: Number, default: 0, min: 0 },
 
     seller: {
       type: mongoose.Schema.Types.ObjectId,

@@ -21,10 +21,15 @@ const clampDays = (value, fallback, max = 30) => {
 export const serializePlatformFeeSettings = (settings) => ({
   productChargePercent: clampPercent(settings?.productChargePercent),
   withdrawalChargePercent: clampPercent(settings?.withdrawalChargePercent),
-  shippingFee: clampMoney(settings?.shippingFee),
   deliveryMinDays: Math.max(clampDays(settings?.deliveryMinDays, 2), 1),
   deliveryMaxDays: Math.max(clampDays(settings?.deliveryMaxDays, 5), 1),
   returnWindowDays: clampDays(settings?.returnWindowDays, 7, 60),
+  shippingPolicyTitle: String(settings?.shippingPolicyTitle || "Shipping Policy"),
+  shippingPolicyContent: String(settings?.shippingPolicyContent || ""),
+  returnPolicyTitle: String(settings?.returnPolicyTitle || "Return Policy"),
+  returnPolicyContent: String(settings?.returnPolicyContent || ""),
+  pickupStationPolicyContent: String(settings?.pickupStationPolicyContent || ""),
+  homeDeliveryPolicyContent: String(settings?.homeDeliveryPolicyContent || ""),
 });
 
 export const serializePublicStorefrontSettings = (settings) => {
@@ -33,10 +38,15 @@ export const serializePublicStorefrontSettings = (settings) => {
   const deliveryMaxDays = Math.max(Number(serialized.deliveryMaxDays) || deliveryMinDays, deliveryMinDays);
 
   return {
-    shippingFee: serialized.shippingFee,
     deliveryMinDays,
     deliveryMaxDays,
     returnWindowDays: serialized.returnWindowDays,
+    shippingPolicyTitle: serialized.shippingPolicyTitle,
+    shippingPolicyContent: serialized.shippingPolicyContent,
+    returnPolicyTitle: serialized.returnPolicyTitle,
+    returnPolicyContent: serialized.returnPolicyContent,
+    pickupStationPolicyContent: serialized.pickupStationPolicyContent,
+    homeDeliveryPolicyContent: serialized.homeDeliveryPolicyContent,
   };
 };
 
@@ -51,15 +61,19 @@ export const getPlatformFeeSettings = async () => {
 export const updatePlatformFeeSettings = async ({
   productChargePercent,
   withdrawalChargePercent,
-  shippingFee,
   deliveryMinDays,
   deliveryMaxDays,
   returnWindowDays,
+  shippingPolicyTitle,
+  shippingPolicyContent,
+  returnPolicyTitle,
+  returnPolicyContent,
+  pickupStationPolicyContent,
+  homeDeliveryPolicyContent,
 }) => {
   const settings = await getPlatformFeeSettings();
   settings.productChargePercent = clampPercent(productChargePercent);
   settings.withdrawalChargePercent = clampPercent(withdrawalChargePercent);
-  settings.shippingFee = clampMoney(shippingFee);
 
   const normalizedMinDays = Math.max(clampDays(deliveryMinDays, 2), 1);
   const normalizedMaxDays = Math.max(clampDays(deliveryMaxDays, 5), normalizedMinDays);
@@ -67,6 +81,12 @@ export const updatePlatformFeeSettings = async ({
   settings.deliveryMinDays = normalizedMinDays;
   settings.deliveryMaxDays = normalizedMaxDays;
   settings.returnWindowDays = clampDays(returnWindowDays, 7, 60);
+  if (shippingPolicyTitle !== undefined) settings.shippingPolicyTitle = String(shippingPolicyTitle || "Shipping Policy").trim();
+  if (shippingPolicyContent !== undefined) settings.shippingPolicyContent = String(shippingPolicyContent || "").trim();
+  if (returnPolicyTitle !== undefined) settings.returnPolicyTitle = String(returnPolicyTitle || "Return Policy").trim();
+  if (returnPolicyContent !== undefined) settings.returnPolicyContent = String(returnPolicyContent || "").trim();
+  if (pickupStationPolicyContent !== undefined) settings.pickupStationPolicyContent = String(pickupStationPolicyContent || "").trim();
+  if (homeDeliveryPolicyContent !== undefined) settings.homeDeliveryPolicyContent = String(homeDeliveryPolicyContent || "").trim();
   await settings.save();
   return settings;
 };

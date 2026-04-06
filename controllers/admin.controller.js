@@ -101,6 +101,8 @@ export const adminUpdateProduct = async (req, res) => {
       isFlashSale,
       flashSaleEndsAt,
       isMostWanted,
+      pickupStationFee,
+      homeDeliveryFee,
     } = req.body;
     const parsedKeyFeatures = keyFeatures !== undefined
       ? String(keyFeatures)
@@ -144,6 +146,14 @@ export const adminUpdateProduct = async (req, res) => {
     if (parsedKeyFeatures !== undefined) product.keyFeatures = parsedKeyFeatures;
     if (stock !== undefined) product.stock = stock;
     if (status) product.status = status;
+    if (pickupStationFee !== undefined) {
+      const parsedPickupStationFee = parseOptionalNumber(pickupStationFee);
+      product.pickupStationFee = parsedPickupStationFee === null ? 0 : parsedPickupStationFee;
+    }
+    if (homeDeliveryFee !== undefined) {
+      const parsedHomeDeliveryFee = parseOptionalNumber(homeDeliveryFee);
+      product.homeDeliveryFee = parsedHomeDeliveryFee === null ? 0 : parsedHomeDeliveryFee;
+    }
 
     if (discountPrice !== undefined) {
       const parsedDiscountPrice = parseOptionalNumber(discountPrice);

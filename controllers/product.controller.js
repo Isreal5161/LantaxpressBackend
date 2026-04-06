@@ -121,6 +121,15 @@ const parseKeyFeatures = (value) => {
     .filter(Boolean);
 };
 
+const parseShippingFee = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+};
+
 const extractUploadedImages = (files) => {
   if (!files) {
     return [];
@@ -144,7 +153,19 @@ const extractUploadedVideo = (files) => {
 // ================= ADD PRODUCT =================
 export const addProduct = async (req, res) => {
   try {
-    const { name, description, price, discountPrice, discountPercent, category, stock, brand, keyFeatures } = req.body;
+    const {
+      name,
+      description,
+      price,
+      discountPrice,
+      discountPercent,
+      category,
+      stock,
+      brand,
+      keyFeatures,
+      pickupStationFee,
+      homeDeliveryFee,
+    } = req.body;
 
     if (!name || !price || !category) {
       return res.status(400).json({ message: "Name, price, and category are required" });
@@ -176,6 +197,8 @@ export const addProduct = async (req, res) => {
       category: validatedCategory,
       brand,
       keyFeatures: parseKeyFeatures(keyFeatures),
+      pickupStationFee: parseShippingFee(pickupStationFee),
+      homeDeliveryFee: parseShippingFee(homeDeliveryFee),
       stock,
       images,
       video,
@@ -226,7 +249,19 @@ export const updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { name, description, price, discountPrice, discountPercent, category, stock, brand, keyFeatures } = req.body;
+    const {
+      name,
+      description,
+      price,
+      discountPrice,
+      discountPercent,
+      category,
+      stock,
+      brand,
+      keyFeatures,
+      pickupStationFee,
+      homeDeliveryFee,
+    } = req.body;
 
     let pricing;
 
@@ -255,6 +290,8 @@ export const updateProduct = async (req, res) => {
     if (brand) product.brand = brand;
     if (keyFeatures !== undefined) product.keyFeatures = parseKeyFeatures(keyFeatures);
     if (stock !== undefined) product.stock = stock;
+    if (pickupStationFee !== undefined) product.pickupStationFee = parseShippingFee(pickupStationFee);
+    if (homeDeliveryFee !== undefined) product.homeDeliveryFee = parseShippingFee(homeDeliveryFee);
 
     // handle uploaded images
     const newImages = extractUploadedImages(req.files);

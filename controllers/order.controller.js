@@ -16,6 +16,15 @@ const ORDER_STAGES = [
   "Cancelled",
 ];
 
+const resolveShippingMethod = (value) => (value === "home_delivery" ? "home_delivery" : "pickup_station");
+
+const resolveProductShippingAmount = (product, shippingMethod) => {
+  const resolvedMethod = resolveShippingMethod(shippingMethod);
+  return resolvedMethod === "home_delivery"
+    ? Math.max(Number(product?.homeDeliveryFee) || 0, 0)
+    : Math.max(Number(product?.pickupStationFee) || 0, 0);
+};
+
 const deductStockForCompletedOrder = async (order) => {
   if (!order || order.stockDeductedAt) {
     return;
@@ -90,6 +99,7 @@ const serializeOrder = (order) => {
     totalAmount: order.totalAmount || order.amount || 0,
     currency: order.currency || "NGN",
     paymentMethod: order.paymentMethod || "card",
+    shippingMethod: order.shippingMethod || "pickup_station",
     status: order.status,
     stageTimestamps: toStageObject(order.stageTimestamps),
     expectedDelivery: order.expectedDelivery,
@@ -134,7 +144,6 @@ export const createOrders = async (req, res) => {
     const productMap = new Map(products.map((product) => [product._id.toString(), product]));
     const feeSettings = await getPlatformFeeSettings();
     const productChargePercent = Number(feeSettings?.productChargePercent) || 0;
-    const shippingFee = Math.max(Number(feeSettings?.shippingFee) || 0, 0);
 
     const now = new Date();
     const createdOrders = [];
@@ -157,8 +166,10 @@ export const createOrders = async (req, res) => {
 
       const unitPrice = getProductSellingPrice(product);
       const grossAmount = unitPrice * quantity;
+  const shippingMethod = resolveShippingMethod(cartItem.selectedShippingMethod);
+  const shippingAmount = resolveProductShippingAmount(product, shippingMethod);
       const productCharge = calculateProductCharge(grossAmount, productChargePercent);
-      const totalAmount = grossAmount + shippingFee;
+  const totalAmount = grossAmount + shippingAmount;
       const order = await Order.create({
         orderNumber: buildOrderNumber(),
         buyer: req.user._id,
@@ -176,6 +187,7 @@ export const createOrders = async (req, res) => {
           country: shippingAddress.country || "",
         },
         paymentMethod: paymentMethod || "card",
+        shippingMethod,
         currency: currency || "NGN",
         items: [
           {
@@ -190,7 +202,7 @@ export const createOrders = async (req, res) => {
           },
         ],
         amount: grossAmount,
-        shippingAmount: shippingFee,
+        shippingAmount,
         totalAmount,
         productChargePercent: productCharge.chargePercent,
         productChargeAmount: productCharge.chargeAmount,

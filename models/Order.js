@@ -27,6 +27,11 @@ const orderSchema = new mongoose.Schema(
       country: { type: String, default: "" },
     },
     paymentMethod: { type: String, default: "card" },
+    shippingMethod: {
+      type: String,
+      enum: ["pickup_station", "home_delivery"],
+      default: "pickup_station",
+    },
     currency: { type: String, default: "NGN" },
     items: [
       {
