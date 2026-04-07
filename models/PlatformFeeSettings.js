@@ -33,6 +33,16 @@ const platformFeeSettingsSchema = new mongoose.Schema(
       default:
         "Home delivery starts from the day you place your order until the first delivery attempt at your address. Please keep your phone reachable during the delivery window.",
     },
+    logisticsRateUnit: {
+      type: String,
+      enum: ["kilometer", "meter"],
+      default: "kilometer",
+    },
+    logisticsRateValue: { type: Number, default: 1000, min: 0 },
+    logisticsBaseFee: { type: Number, default: 0, min: 0 },
+    logisticsMinimumFee: { type: Number, default: 0, min: 0 },
+    logisticsSupportPhone: { type: String, trim: true, default: "" },
+    logisticsSupportEmail: { type: String, trim: true, default: "" },
   },
   { timestamps: true }
 );

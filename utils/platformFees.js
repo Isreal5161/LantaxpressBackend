@@ -39,6 +39,12 @@ export const serializePlatformFeeSettings = (settings) => ({
   returnPolicyContent: String(settings?.returnPolicyContent || ""),
   pickupStationPolicyContent: String(settings?.pickupStationPolicyContent || ""),
   homeDeliveryPolicyContent: String(settings?.homeDeliveryPolicyContent || ""),
+  logisticsRateUnit: settings?.logisticsRateUnit === "meter" ? "meter" : "kilometer",
+  logisticsRateValue: clampMoney(settings?.logisticsRateValue),
+  logisticsBaseFee: clampMoney(settings?.logisticsBaseFee),
+  logisticsMinimumFee: clampMoney(settings?.logisticsMinimumFee),
+  logisticsSupportPhone: String(settings?.logisticsSupportPhone || ""),
+  logisticsSupportEmail: String(settings?.logisticsSupportEmail || ""),
 });
 
 export const serializePublicStorefrontSettings = (settings) => {
@@ -60,6 +66,12 @@ export const serializePublicStorefrontSettings = (settings) => {
     returnPolicyContent: serialized.returnPolicyContent,
     pickupStationPolicyContent: serialized.pickupStationPolicyContent,
     homeDeliveryPolicyContent: serialized.homeDeliveryPolicyContent,
+    logisticsRateUnit: serialized.logisticsRateUnit,
+    logisticsRateValue: serialized.logisticsRateValue,
+    logisticsBaseFee: serialized.logisticsBaseFee,
+    logisticsMinimumFee: serialized.logisticsMinimumFee,
+    logisticsSupportPhone: serialized.logisticsSupportPhone,
+    logisticsSupportEmail: serialized.logisticsSupportEmail,
   };
 };
 
@@ -83,6 +95,12 @@ export const updatePlatformFeeSettings = async ({
   returnPolicyContent,
   pickupStationPolicyContent,
   homeDeliveryPolicyContent,
+  logisticsRateUnit,
+  logisticsRateValue,
+  logisticsBaseFee,
+  logisticsMinimumFee,
+  logisticsSupportPhone,
+  logisticsSupportEmail,
 }) => {
   const settings = await getPlatformFeeSettings({ createIfMissing: true });
   settings.productChargePercent = clampPercent(productChargePercent);
@@ -102,6 +120,12 @@ export const updatePlatformFeeSettings = async ({
   if (returnPolicyContent !== undefined) settings.returnPolicyContent = String(returnPolicyContent || "").trim();
   if (pickupStationPolicyContent !== undefined) settings.pickupStationPolicyContent = String(pickupStationPolicyContent || "").trim();
   if (homeDeliveryPolicyContent !== undefined) settings.homeDeliveryPolicyContent = String(homeDeliveryPolicyContent || "").trim();
+  if (logisticsRateUnit !== undefined) settings.logisticsRateUnit = logisticsRateUnit === "meter" ? "meter" : "kilometer";
+  if (logisticsRateValue !== undefined) settings.logisticsRateValue = clampMoney(logisticsRateValue);
+  if (logisticsBaseFee !== undefined) settings.logisticsBaseFee = clampMoney(logisticsBaseFee);
+  if (logisticsMinimumFee !== undefined) settings.logisticsMinimumFee = clampMoney(logisticsMinimumFee);
+  if (logisticsSupportPhone !== undefined) settings.logisticsSupportPhone = String(logisticsSupportPhone || "").trim();
+  if (logisticsSupportEmail !== undefined) settings.logisticsSupportEmail = String(logisticsSupportEmail || "").trim();
   await settings.save();
   return settings;
 };
