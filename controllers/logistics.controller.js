@@ -28,6 +28,33 @@ const buildTrackingId = () => {
   return `LTX-${stamp}-${random}`;
 };
 
+const normalizeLocation = (location = {}) => {
+  const state = String(location?.state || "").trim();
+  const lga = String(location?.lga || "").trim();
+  const street = String(location?.street || "").trim();
+  const formattedAddress = String(location?.formattedAddress || [street, lga, state, "Nigeria"].filter(Boolean).join(", ")).trim();
+
+  return {
+    state,
+    lga,
+    street,
+    formattedAddress,
+  };
+};
+
+const resolveLocationPayload = (location, fallbackAddress) => {
+  const normalizedLocation = normalizeLocation(location);
+  const formattedAddress = normalizedLocation.formattedAddress || String(fallbackAddress || "").trim();
+
+  return {
+    location: {
+      ...normalizedLocation,
+      formattedAddress,
+    },
+    address: formattedAddress,
+  };
+};
+
 const toStageObject = (stageMap) => {
   if (!stageMap) return {};
   if (stageMap instanceof Map) {
@@ -63,6 +90,8 @@ const serializeLogisticsRequest = (request) => ({
   receivedAt: request.receivedAt || null,
   serviceType: request.serviceType || "",
   urgency: request.urgency || "",
+  pickupLocation: normalizeLocation(request.pickupLocation),
+  deliveryLocation: normalizeLocation(request.deliveryLocation),
   pickup: request.pickupAddress || "",
   delivery: request.deliveryAddress || "",
   distanceMeters: request.distanceMeters || 0,
@@ -236,13 +265,16 @@ const isRequestOwnedByUser = (request, user) => {
 
 export const quoteLogistics = async (req, res) => {
   try {
-    const { pickupAddress, deliveryAddress } = req.body || {};
-    if (!pickupAddress || !deliveryAddress) {
+    const { pickupAddress, deliveryAddress, pickupLocation, deliveryLocation } = req.body || {};
+    const resolvedPickup = resolveLocationPayload(pickupLocation, pickupAddress);
+    const resolvedDelivery = resolveLocationPayload(deliveryLocation, deliveryAddress);
+
+    if (!resolvedPickup.address || !resolvedDelivery.address) {
       return res.status(400).json({ message: "Pickup and delivery addresses are required" });
     }
 
     const settings = await getPlatformFeeSettings();
-    const distance = await calculateDistance(String(pickupAddress).trim(), String(deliveryAddress).trim());
+    const distance = await calculateDistance(resolvedPickup.address, resolvedDelivery.address);
     const quote = computeLogisticsQuote({
       distanceMeters: distance.distanceMeters,
       settings,
@@ -265,6 +297,8 @@ export const createLogisticsBooking = async (req, res) => {
       contact,
       serviceType,
       urgency,
+      pickupLocation,
+      deliveryLocation,
       pickupAddress,
       deliveryAddress,
       packageDescription,
@@ -276,12 +310,15 @@ export const createLogisticsBooking = async (req, res) => {
       return res.status(400).json({ message: "Customer name and phone are required" });
     }
 
-    if (!pickupAddress || !deliveryAddress || !packageDescription) {
+    const resolvedPickup = resolveLocationPayload(pickupLocation, pickupAddress);
+    const resolvedDelivery = resolveLocationPayload(deliveryLocation, deliveryAddress);
+
+    if (!resolvedPickup.address || !resolvedDelivery.address || !packageDescription) {
       return res.status(400).json({ message: "Pickup, delivery, and package description are required" });
     }
 
     const settings = await getPlatformFeeSettings();
-    const distance = await calculateDistance(String(pickupAddress).trim(), String(deliveryAddress).trim());
+    const distance = await calculateDistance(resolvedPickup.address, resolvedDelivery.address);
     const quote = computeLogisticsQuote({
       distanceMeters: distance.distanceMeters,
       settings,
@@ -300,8 +337,10 @@ export const createLogisticsBooking = async (req, res) => {
       },
       serviceType: String(serviceType || "Marketplace delivery").trim(),
       urgency: String(urgency || "Standard").trim(),
-      pickupAddress: String(pickupAddress || "").trim(),
-      deliveryAddress: String(deliveryAddress || "").trim(),
+      pickupLocation: resolvedPickup.location,
+      deliveryLocation: resolvedDelivery.location,
+      pickupAddress: resolvedPickup.address,
+      deliveryAddress: resolvedDelivery.address,
       packageDescription: String(packageDescription || "").trim(),
       image: String(image || "").trim(),
       distanceMeters: quote.distanceMeters,
@@ -399,9 +438,16 @@ export const updateAdminLogisticsStatus = async (req, res) => {
     }
     await booking.save();
 
+    const statusMessages = {
+      Approved: `Your logistics request ${booking.trackingId} has been approved and is ready for dispatch updates.`,
+      Declined: `Your logistics request ${booking.trackingId} was declined. Please review admin notes for guidance.`,
+      Cancelled: `Your logistics request ${booking.trackingId} was cancelled.`,
+      Completed: `Your logistics request ${booking.trackingId} has been completed successfully.`,
+    };
+
     await notifyUser(booking.buyer?._id || booking.buyer, {
       type: "logistics:status-updated",
-      message: `Tracking ID ${booking.trackingId} is now ${status}.`,
+      message: statusMessages[status] || `Tracking ID ${booking.trackingId} is now ${status}.`,
       meta: { logisticsId: booking._id, trackingId: booking.trackingId, status },
     });
 

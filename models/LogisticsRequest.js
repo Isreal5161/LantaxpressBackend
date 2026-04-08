@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+const routeLocationSchema = new mongoose.Schema(
+  {
+    state: { type: String, default: "", trim: true },
+    lga: { type: String, default: "", trim: true },
+    street: { type: String, default: "", trim: true },
+    formattedAddress: { type: String, default: "", trim: true },
+  },
+  { _id: false }
+);
+
 const logisticsRequestSchema = new mongoose.Schema(
   {
     requestNumber: { type: String, required: true, unique: true, index: true },
@@ -12,6 +22,8 @@ const logisticsRequestSchema = new mongoose.Schema(
     },
     serviceType: { type: String, required: true, trim: true },
     urgency: { type: String, required: true, trim: true },
+    pickupLocation: { type: routeLocationSchema, default: () => ({}) },
+    deliveryLocation: { type: routeLocationSchema, default: () => ({}) },
     pickupAddress: { type: String, required: true, trim: true },
     deliveryAddress: { type: String, required: true, trim: true },
     packageDescription: { type: String, required: true, trim: true },
