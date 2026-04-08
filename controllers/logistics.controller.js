@@ -122,6 +122,42 @@ const formatDurationText = (durationMinutes) => {
   return minutes > 0 ? `${hours} hr ${minutes} mins` : `${hours} hr`;
 };
 
+const buildStructuredRouteEstimate = (pickupLocation, deliveryLocation) => {
+  const pickup = normalizeLocation(pickupLocation);
+  const delivery = normalizeLocation(deliveryLocation);
+
+  if (!pickup.state || !pickup.lga || !delivery.state || !delivery.lga) {
+    return null;
+  }
+
+  const sameState = pickup.state.toLowerCase() === delivery.state.toLowerCase();
+  const sameLga = sameState && pickup.lga.toLowerCase() === delivery.lga.toLowerCase();
+  const sameStreet = sameLga && pickup.street && delivery.street && pickup.street.toLowerCase() === delivery.street.toLowerCase();
+
+  let distanceMeters = 0;
+
+  if (sameStreet) {
+    distanceMeters = 2500;
+  } else if (sameLga) {
+    distanceMeters = 6000;
+  } else if (sameState) {
+    distanceMeters = 18000;
+  } else if (pickup.state === "Abuja (FCT)" || delivery.state === "Abuja (FCT)") {
+    distanceMeters = 42000;
+  } else {
+    distanceMeters = 70000;
+  }
+
+  const averageMetersPerMinute = sameState ? 380 : 520;
+
+  return {
+    distanceMeters,
+    distanceText: formatDistanceText(distanceMeters),
+    durationText: formatDurationText(distanceMeters / averageMetersPerMinute),
+    calculator: "state-lga-band",
+  };
+};
+
 const computeLogisticsQuote = ({ distanceMeters, settings, calculator }) => {
   const storefrontSettings = serializePublicStorefrontSettings(settings);
   const rateUnit = storefrontSettings.logisticsRateUnit === "meter" ? "meter" : "kilometer";
@@ -241,7 +277,12 @@ const requestFallbackDistance = async (pickupAddress, deliveryAddress) => {
   };
 };
 
-const calculateDistance = async (pickupAddress, deliveryAddress) => {
+const calculateDistance = async ({ pickupAddress, deliveryAddress, pickupLocation, deliveryLocation }) => {
+  const structuredEstimate = buildStructuredRouteEstimate(pickupLocation, deliveryLocation);
+  if (structuredEstimate) {
+    return structuredEstimate;
+  }
+
   try {
     return await requestGoogleDistance(pickupAddress, deliveryAddress);
   } catch {
@@ -274,7 +315,12 @@ export const quoteLogistics = async (req, res) => {
     }
 
     const settings = await getPlatformFeeSettings();
-    const distance = await calculateDistance(resolvedPickup.address, resolvedDelivery.address);
+    const distance = await calculateDistance({
+      pickupAddress: resolvedPickup.address,
+      deliveryAddress: resolvedDelivery.address,
+      pickupLocation: resolvedPickup.location,
+      deliveryLocation: resolvedDelivery.location,
+    });
     const quote = computeLogisticsQuote({
       distanceMeters: distance.distanceMeters,
       settings,
@@ -318,7 +364,12 @@ export const createLogisticsBooking = async (req, res) => {
     }
 
     const settings = await getPlatformFeeSettings();
-    const distance = await calculateDistance(resolvedPickup.address, resolvedDelivery.address);
+    const distance = await calculateDistance({
+      pickupAddress: resolvedPickup.address,
+      deliveryAddress: resolvedDelivery.address,
+      pickupLocation: resolvedPickup.location,
+      deliveryLocation: resolvedDelivery.location,
+    });
     const quote = computeLogisticsQuote({
       distanceMeters: distance.distanceMeters,
       settings,
